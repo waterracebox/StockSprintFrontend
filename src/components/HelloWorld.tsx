@@ -9,12 +9,12 @@ const HelloWorld: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // 從後端取得健康狀態（自動適配本地開發與生產環境）
+        // 繁體中文: 從後端取得健康狀態（自動適配本地開發與生產環境）
         const fetchHealth = async () => {
             try {
-                // 本地開發使用代理 /api，生產環境使用完整 URL
+                // 本地開發使用代理 /api，生產環境使用環境變數
                 const apiUrl = import.meta.env.PROD 
-                    ? "https://stock-sprint-backend.onrender.com/health"
+                    ? `${import.meta.env.VITE_API_URL}/health`
                     : "/api/health";
                 
                 console.log("開始取得健康狀態，目標 URL:", apiUrl);
