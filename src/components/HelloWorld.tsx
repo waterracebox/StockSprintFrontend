@@ -9,7 +9,7 @@ const HelloWorld: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // 繁體中文: 從後端取得健康狀態（自動適配本地開發與生產環境）
+        // 從後端取得健康狀態（自動適配本地開發與生產環境）
         const fetchHealth = async () => {
             try {
                 // 本地開發使用代理 /api，生產環境使用環境變數

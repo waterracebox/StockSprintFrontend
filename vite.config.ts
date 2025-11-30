@@ -9,14 +9,8 @@ export default defineConfig({
             '/api': {
                 target: 'http://127.0.0.1:8000',
                 changeOrigin: true,
-                rewrite: (path) => path.replace(/^\/api/, ''),
+                // 不需要 rewrite，因為後端路由就是 /api/auth/*
             },
         },
-    },
-    // 定義環境變數，用於生產環境 API 端點
-    define: {
-        'import.meta.env.VITE_API_URL': JSON.stringify(
-            process.env.VITE_API_URL || 'http://127.0.0.1:8000'
-        ),
     },
 });

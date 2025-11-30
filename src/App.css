@@ -40,3 +40,9 @@
 .read-the-docs {
   color: #888;
 }
+
+/* 確保 antd-mobile Form 標籤靠左對齊 */
+.adm-form-item-label {
+  text-align: left !important;
+  justify-content: flex-start !important;
+}
