@@ -1,8 +1,20 @@
+/* 強制淺色模式，不受系統主題影響 */
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  background-color: #ffffff;
+  color: #000000;
 }
 
 .logo {
