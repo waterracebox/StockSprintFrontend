@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button } from 'antd-mobile';
 import { message } from 'antd';
@@ -15,6 +15,24 @@ const LoginPage: React.FC<LoginPageProps> = ({ isAdmin = false }) => {
     const [form] = Form.useForm();
     const navigate = useNavigate();
     const [messageApi, contextHolder] = message.useMessage();
+
+    // 檢查使用者是否已登入，若已登入則自動導向主頁
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            // 驗證 Token 是否有效
+            authAPI
+                .getMe()
+                .then(() => {
+                    // Token 有效，導向主頁
+                    navigate('/home', { replace: true });
+                })
+                .catch(() => {
+                    // Token 無效，清除並留在登入頁
+                    localStorage.removeItem('token');
+                });
+        }
+    }, [navigate]);
 
     const handleLogin = async () => {
         try {
