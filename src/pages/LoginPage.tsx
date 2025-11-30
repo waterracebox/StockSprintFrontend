@@ -40,7 +40,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ isAdmin = false }) => {
             setLoading(true);
 
             const credentials: LoginCredentials = {
-                username: values.username,
+                username: values.username?.trim(),
                 password: values.password,
             };
 

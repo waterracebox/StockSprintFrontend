@@ -57,18 +57,18 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isAdmin }) => {
             if (isAdmin) {
                 // 管理員註冊
                 const data: RegisterAdminData = {
-                    username: values.username,
+                    username: values.username?.trim(),
                     password: values.password,
-                    displayName: values.displayName,
+                    displayName: values.displayName?.trim(),
                     adminSecret: values.adminSecret,
                 };
                 await authAPI.registerAdmin(data);
             } else {
                 // 一般使用者註冊
                 const data: RegisterData = {
-                    username: values.username,
+                    username: values.username?.trim(),
                     password: values.password,
-                    displayName: values.displayName,
+                    displayName: values.displayName?.trim(),
                 };
                 await authAPI.register(data);
             }
