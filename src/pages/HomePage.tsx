@@ -5,10 +5,19 @@ import { io, Socket } from 'socket.io-client';
 import { authAPI } from '../services/auth';
 import type { User } from '../services/auth';
 
+// 遊戲狀態介面
+interface GameState {
+    currentDay: number;
+    isGameStarted: boolean;
+    countdown: number;
+    totalDays: number;
+}
+
 const HomePage: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isSocketConnected, setIsSocketConnected] = useState(false);
+    const [gameState, setGameState] = useState<GameState | null>(null);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -16,8 +25,8 @@ const HomePage: React.FC = () => {
         authAPI
             .getMe()
             .then((response) => setUser(response.user))
-            .catch(() => {
-                Toast.show({ content: '無法取得使用者資訊', icon: 'fail' });
+            .catch((error) => {
+                console.error('[Auth] 無法取得使用者資訊:', error);
             });
     }, []);
 
@@ -53,7 +62,6 @@ const HomePage: React.FC = () => {
         newSocket.on('connect', () => {
             console.log(`[Socket] 連線成功 (Socket ID: ${newSocket.id})`);
             setIsSocketConnected(true);
-            Toast.show({ content: 'WebSocket 連線成功', icon: 'success' });
         });
 
         // 連線錯誤
@@ -63,9 +71,14 @@ const HomePage: React.FC = () => {
             
             // 若為認證錯誤，導向登入頁
             if (error.message.includes('Authentication')) {
-                Toast.show({ content: '認證失敗，請重新登入', icon: 'fail' });
+                console.error('[Socket] 認證失敗，導向登入頁');
+                Toast.show({
+                    icon: 'fail',
+                    content: '認證失敗，請重新登入',
+                });
                 localStorage.removeItem('token');
-                navigate('/login');
+                // 延遲跳轉，讓使用者看到 Toast
+                setTimeout(() => navigate('/login'), 1500);
             }
         });
 
@@ -73,6 +86,12 @@ const HomePage: React.FC = () => {
         newSocket.on('disconnect', (reason) => {
             console.log(`[Socket] 已斷線 (原因: ${reason})`);
             setIsSocketConnected(false);
+        });
+
+        // 監聽遊戲狀態更新
+        newSocket.on('GAME_STATE_UPDATE', (data: GameState) => {
+            console.log('遊戲狀態更新:', data);
+            setGameState(data);
         });
 
         setSocket(newSocket);
@@ -120,6 +139,40 @@ const HomePage: React.FC = () => {
                     )}
                 </div>
             </Card>
+
+            {/* 遊戲狀態顯示 */}
+            {gameState && (
+                <Card 
+                    title="遊戲狀態" 
+                    style={{ 
+                        marginBottom: '20px',
+                        borderLeft: gameState.isGameStarted ? '4px solid #1677ff' : '4px solid #999'
+                    }}
+                >
+                    <div style={{ fontSize: '14px', lineHeight: '2' }}>
+                        <p>
+                            <strong>遊戲狀態:</strong> 
+                            <span style={{ 
+                                color: gameState.isGameStarted ? '#1677ff' : '#999', 
+                                marginLeft: '8px' 
+                            }}>
+                                {gameState.isGameStarted ? '進行中' : '未開始'}
+                            </span>
+                        </p>
+                        <p><strong>當前天數:</strong> Day {gameState.currentDay} / {gameState.totalDays}</p>
+                        <p>
+                            <strong>倒數計時:</strong> 
+                            <span style={{ 
+                                color: gameState.countdown <= 10 ? '#ff3141' : '#000',
+                                fontWeight: gameState.countdown <= 10 ? 'bold' : 'normal',
+                                marginLeft: '8px'
+                            }}>
+                                {gameState.countdown}s
+                            </span>
+                        </p>
+                    </div>
+                </Card>
+            )}
 
             <Card title="使用者資訊" style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '14px', lineHeight: '2' }}>
