@@ -1,0 +1,68 @@
+/* 排行榜容器 */
+.leaderboard-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border-radius: 8px;
+}
+
+/* 排名上升時的綠色閃爍動畫 */
+@keyframes rank-up-flash {
+    0% {
+        background-color: rgba(0, 255, 0, 0.5);
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+.rank-up {
+    animation: rank-up-flash 1s ease-out;
+}
+
+/* 排行榜項目樣式 */
+.leaderboard-item {
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent; /* 所有項目都有透明邊框，保持對齊 */
+}
+
+.leaderboard-item:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* 自己的排名高亮 */
+.self-row {
+    border-left-color: #1677ff !important; /* 只改變顏色，不改變寬度 */
+    background-color: rgba(22, 119, 255, 0.05);
+}
+
+/* 排名徽章樣式 */
+.rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.rank-badge.top-1 {
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    color: #fff;
+}
+
+.rank-badge.top-2 {
+    background: linear-gradient(135deg, #C0C0C0, #A8A8A8);
+    color: #fff;
+}
+
+.rank-badge.top-3 {
+    background: linear-gradient(135deg, #CD7F32, #B8860B);
+    color: #fff;
+}
+
+.rank-badge.normal {
+    background-color: #f0f0f0;
+    color: #666;
+}

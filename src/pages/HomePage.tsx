@@ -8,6 +8,7 @@ import type { User } from '../services/auth';
 import type { GameState, StockData, FullSyncPayload, PersonalAssets } from '../types/game';
 import StockChart from '../components/StockChart';
 import TradingBar from '../components/TradingBar';
+import Leaderboard from '../components/Leaderboard';
 
 /**
  * 格式化倒數計時（秒數轉 MM:SS）
@@ -18,6 +19,14 @@ const formatCountdown = (seconds: number): string => {
     return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
+interface LeaderboardItem {
+    userId: number;
+    displayName: string;
+    avatar: string | null;
+    totalAssets: number;
+    rank: number;
+}
+
 const HomePage: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [socket, setSocket] = useState<Socket | null>(null);
@@ -27,6 +36,7 @@ const HomePage: React.FC = () => {
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [stockHistory, setStockHistory] = useState<StockData[]>([]);
     const [assets, setAssets] = useState<PersonalAssets>({ cash: 0, stocks: 0, debt: 0 });
+    const [leaderboardData, setLeaderboardData] = useState<LeaderboardItem[]>([]);
     
     // 交易操作狀態
     const [isTrading, setIsTrading] = useState(false); // 交易鎖定狀態
@@ -117,6 +127,11 @@ const HomePage: React.FC = () => {
             // 更新個人資產
             setAssets(payload.personal);
             
+            // 更新排行榜（若有）
+            if (payload.leaderboard) {
+                setLeaderboardData(payload.leaderboard);
+            }
+            
             Toast.show({
                 icon: 'success',
                 content: '狀態同步完成',
@@ -142,6 +157,12 @@ const HomePage: React.FC = () => {
                 content: `Day ${payload.day}: $${payload.price.toFixed(2)}`,
                 duration: 2000,
             });
+        });
+
+        // 4. 排行榜更新（換日時廣播）
+        newSocket.on('LEADERBOARD_UPDATE', (payload: { data: LeaderboardItem[] }) => {
+            console.log('[Socket] 排行榜更新:', payload);
+            setLeaderboardData(payload.data);
         });
 
         // ==================== 交易事件監聽 ====================
@@ -197,6 +218,7 @@ const HomePage: React.FC = () => {
             newSocket.off('FULL_SYNC_STATE');
             newSocket.off('GAME_STATE_UPDATE');
             newSocket.off('PRICE_UPDATE');
+            newSocket.off('LEADERBOARD_UPDATE');
             newSocket.off('TRADE_SUCCESS');
             newSocket.off('TRADE_ERROR');
             newSocket.disconnect();
@@ -349,7 +371,7 @@ const HomePage: React.FC = () => {
                 flex: 1, 
                 overflowY: 'auto', 
                 padding: '12px 16px',
-                paddingBottom: '140px' // 預留底部交易欄空間
+                paddingBottom: '250px' // 預留底部交易欄空間（加大避免被遮擋）
             }}>
                 {/* ==================== (1) 資產區域 ==================== */}
                 <div style={{ 
@@ -509,16 +531,20 @@ const HomePage: React.FC = () => {
                         fontWeight: 'bold', 
                         marginBottom: '12px'
                     }}>
-                        排行榜
+                        排行榜 🏆
                     </div>
-                    <div style={{ 
-                        textAlign: 'center', 
-                        padding: '20px 0',
-                        fontSize: '12px',
-                        color: '#999'
-                    }}>
-                        排行榜功能尚未實作
-                    </div>
+                    {leaderboardData.length > 0 ? (
+                        <Leaderboard data={leaderboardData} currentUserId={user?.id || 0} />
+                    ) : (
+                        <div style={{ 
+                            textAlign: 'center', 
+                            padding: '20px 0',
+                            fontSize: '12px',
+                            color: '#999'
+                        }}>
+                            等待排行榜資料...
+                        </div>
+                    )}
                 </div>
 
                 {/* WebSocket 連線狀態（Debug 用） */}
