@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Toast, Avatar, Dialog, Popup, Grid, Modal } from 'antd-mobile';
-import { SetOutline, RightOutline, CloseOutline } from 'antd-mobile-icons';
+import { RightOutline, CloseOutline } from 'antd-mobile-icons';
 import { io, Socket } from 'socket.io-client';
 import { authAPI } from '../services/auth';
 import type { User } from '../services/auth';

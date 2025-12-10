@@ -77,7 +77,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, showAll = false }) => {
             if (showAll) {
                 // 完整模式：顯示座標軸
                 chart.axis('day', {
-                    label: function label(text, index, total) {
+                    label: function label(text: any, index: number, total: number) {
                         // X 軸：顯示 5 個刻度（天數）
                         const step = Math.ceil(total / 5);
                         if (index % step === 0 || index === total - 1) {
@@ -96,9 +96,9 @@ const StockChart: React.FC<StockChartProps> = ({ data, showAll = false }) => {
                 });
                 
                 chart.axis('price', {
-                    label: function label(text) {
+                    label: function label(text: any) {
                         return {
-                            text: '$' + parseFloat(text).toFixed(2),
+                            text: '$' + parseFloat(String(text)).toFixed(2),
                             fontSize: 10
                         };
                     },
@@ -110,8 +110,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, showAll = false }) => {
                         lineWidth: 1,
                         stroke: '#f0f0f0',
                         lineDash: [2, 2]
-                    },
-                    tickCount: 5 // Y 軸顯示 5 個刻度
+                    }
                 });
             } else {
                 // 簡潔模式：隱藏座標軸
@@ -125,8 +124,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, showAll = false }) => {
             // 4. 完全禁用 Tooltip（包括黑色浮動視窗）
             chart.tooltip({
                 showCrosshairs: false,
-                showItemMarker: false,
-                showTooltip: false
+                showItemMarker: false
             });
 
             // 5. 繪製圖形
