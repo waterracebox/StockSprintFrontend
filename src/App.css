@@ -6,15 +6,26 @@
 html, body {
   background-color: #ffffff !important;
   color: #000000 !important;
+  margin: 0;
+  padding: 0;
 }
 
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  margin: 0 !important;
+  padding: 0 !important;
   background-color: #ffffff;
   color: #000000;
+  width: 100vw;
+  min-height: 100vh;
+}
+
+/* 移除 Ant Design Mobile Card 的預設 padding 和 margin */
+.adm-card {
+  margin: 0 !important;
+}
+
+.adm-card-body {
+  padding: 0 !important;
 }
 
 .logo {

@@ -10,21 +10,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@antv/f2": "^5.14.0",
+    "@antv/f2": "^3.8.9",
     "antd": "^6.0.0",
     "antd-mobile": "^5.41.1",
     "antd-mobile-icons": "^0.3.0",
     "axios": "^1.13.2",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-router-dom": "^7.9.6",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/node": "^24.10.1",
-    "@types/react": "^19.2.5",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^5.1.1",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",

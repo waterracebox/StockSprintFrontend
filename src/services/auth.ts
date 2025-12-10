@@ -25,6 +25,7 @@ export interface User {
     id: number;
     username: string;
     displayName: string;
+    avatar: string; // 頭像檔案名稱
     cash: number;
     stocks: number;
     debt: number; // 負債金額
@@ -101,6 +102,16 @@ export const authAPI = {
      */
     getMe: async (): Promise<{ user: User }> => {
         const response = await apiClient.get('/auth/me');
+        return response.data;
+    },
+
+    /**
+     * 更新使用者頭像
+     * PATCH /api/auth/avatar
+     * 需要驗證 (Protected Route)
+     */
+    updateAvatar: async (avatar: string): Promise<{ message: string; user: User }> => {
+        const response = await apiClient.patch('/auth/avatar', { avatar });
         return response.data;
     },
 };
