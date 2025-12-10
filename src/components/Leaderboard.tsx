@@ -68,9 +68,8 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ data, currentUserId }) => {
                                     <Avatar
                                         src={item.avatar ? `/avatars/${item.avatar}` : ''}
                                         style={{ '--size': '36px', backgroundColor: '#1677ff' }}
-                                    >
-                                        {item.displayName.charAt(0)}
-                                    </Avatar>
+                                        fallback={item.displayName.charAt(0)}
+                                    />
                                 </div>
                             }
                             description={`總資產: $${formatAssets(item.totalAssets)}`}
