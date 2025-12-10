@@ -7,6 +7,7 @@ import { authAPI } from '../services/auth';
 import type { User } from '../services/auth';
 import type { GameState, StockData, FullSyncPayload, PersonalAssets } from '../types/game';
 import StockChart from '../components/StockChart';
+import TradingBar from '../components/TradingBar';
 
 /**
  * 格式化倒數計時（秒數轉 MM:SS）
@@ -28,10 +29,7 @@ const HomePage: React.FC = () => {
     const [assets, setAssets] = useState<PersonalAssets>({ cash: 0, stocks: 0, debt: 0 });
     
     // 交易操作狀態
-    const [tradeMode, setTradeMode] = useState<'spot' | 'contract'>('spot'); // 現貨 / 合約
-    const [quantity, setQuantity] = useState<number>(1); // 張數
-    const [contractDirection, setContractDirection] = useState<'long' | 'short'>('long'); // 做多 / 做空
-    const [leverage, setLeverage] = useState<number>(2); // 倍數
+    const [isTrading, setIsTrading] = useState(false); // 交易鎖定狀態
     
     // 使用者選單與頭像選擇狀態
     const [showUserMenu, setShowUserMenu] = useState(false);
@@ -146,6 +144,48 @@ const HomePage: React.FC = () => {
             });
         });
 
+        // ==================== 交易事件監聽 ====================
+
+        // 交易成功
+        newSocket.on('TRADE_SUCCESS', (payload: any) => {
+            console.log('[Socket] 交易成功:', payload);
+
+            // 更新個人資產
+            setAssets({
+                cash: payload.newCash,
+                stocks: payload.newStocks,
+                debt: assets.debt, // 目前不處理負債
+            });
+
+            // 解除交易鎖定
+            setIsTrading(false);
+
+            // 播放音效
+            playSound('/sounds/coin.mp3');
+
+            // 顯示成功提示
+            Toast.show({
+                icon: 'success',
+                content: `交易成功！${payload.action === 'BUY' ? '買入' : '賣出'} ${payload.amount} 張，成交價 $${payload.price.toFixed(2)}`,
+                duration: 2000,
+            });
+        });
+
+        // 交易失敗
+        newSocket.on('TRADE_ERROR', (payload: any) => {
+            console.error('[Socket] 交易失敗:', payload);
+
+            // 解除交易鎖定
+            setIsTrading(false);
+
+            // 顯示錯誤提示
+            Toast.show({
+                icon: 'fail',
+                content: payload.message || '交易失敗',
+                duration: 2000,
+            });
+        });
+
         setSocket(newSocket);
 
         // 清理函數：移除所有監聽器並斷開連線
@@ -157,6 +197,8 @@ const HomePage: React.FC = () => {
             newSocket.off('FULL_SYNC_STATE');
             newSocket.off('GAME_STATE_UPDATE');
             newSocket.off('PRICE_UPDATE');
+            newSocket.off('TRADE_SUCCESS');
+            newSocket.off('TRADE_ERROR');
             newSocket.disconnect();
         };
     }, [navigate]);
@@ -168,6 +210,23 @@ const HomePage: React.FC = () => {
         localStorage.removeItem('token');
         navigate('/login');
     };
+
+    // 音效播放輔助函數
+    const playSound = (soundPath: string) => {
+        try {
+            const audio = new Audio(soundPath);
+            audio.play().catch((error) => {
+                console.warn('[Sound] 音效播放失敗 (可能被瀏覽器阻擋):', error);
+            });
+        } catch (error) {
+            console.warn('[Sound] 音效檔案不存在:', soundPath);
+        }
+    };
+
+    // 計算當前股價
+    const currentPrice = stockHistory.length > 0
+        ? stockHistory[stockHistory.length - 1].price
+        : 0;
 
     // 處理頭像更新
     const handleAvatarUpdate = async () => {
@@ -197,9 +256,6 @@ const HomePage: React.FC = () => {
     );
 
     // 計算總資產（現金 + 股票現值 - 負債）
-    const currentPrice = stockHistory.length > 0 
-        ? stockHistory[stockHistory.length - 1].price 
-        : 0;
     const totalAssets = assets.cash + (assets.stocks * currentPrice) - assets.debt;
 
     if (!user) {
@@ -293,7 +349,7 @@ const HomePage: React.FC = () => {
                 flex: 1, 
                 overflowY: 'auto', 
                 padding: '12px 16px',
-                paddingBottom: tradeMode === 'contract' ? '300px' : '240px' // 預留底部操作欄空間
+                paddingBottom: '140px' // 預留底部交易欄空間
             }}>
                 {/* ==================== (1) 資產區域 ==================== */}
                 <div style={{ 
@@ -482,274 +538,13 @@ const HomePage: React.FC = () => {
             </div>
 
             {/* ==================== (4) 股票操作（固定在底部） ==================== */}
-            <div style={{ 
-                position: 'fixed',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                backgroundColor: '#fff',
-                borderTop: '1px solid #e5e5e5',
-                padding: '12px 16px',
-                boxShadow: '0 -2px 8px rgba(0,0,0,0.08)',
-                zIndex: 100
-            }}>
-                {/* 模式切換：現貨 / 合約 + 小遊戲按鈕 */}
-                <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '12px'
-                }}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <Button 
-                            size="small"
-                            fill={tradeMode === 'spot' ? 'solid' : 'none'}
-                            color={tradeMode === 'spot' ? 'primary' : 'default'}
-                            onClick={() => setTradeMode('spot')}
-                        >
-                            現貨
-                        </Button>
-                        <Button 
-                            size="small"
-                            fill={tradeMode === 'contract' ? 'solid' : 'none'}
-                            color={tradeMode === 'contract' ? 'primary' : 'default'}
-                            onClick={() => setTradeMode('contract')}
-                        >
-                            合約
-                        </Button>
-                    </div>
-                    <Button 
-                        size="small"
-                        color="warning"
-                        onClick={() => {
-                            Toast.show({
-                                icon: 'fail',
-                                content: '小遊戲功能尚未實作',
-                            });
-                        }}
-                    >
-                        🎮 小遊戲
-                    </Button>
-                </div>
-
-                {/* 現貨交易 UI */}
-                {tradeMode === 'spot' && (
-                    <>
-                        {/* 張數控制 */}
-                        <div style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '8px'
-                        }}>
-                            <span style={{ fontSize: '14px', color: '#666' }}>張數:</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Button 
-                                    size="small"
-                                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                >
-                                    -
-                                </Button>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={quantity}
-                                    onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 1;
-                                        setQuantity(Math.max(1, val));
-                                    }}
-                                    style={{
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        width: '50px',
-                                        textAlign: 'center',
-                                        border: '1px solid #e5e5e5',
-                                        borderRadius: '4px',
-                                        padding: '4px 8px'
-                                    }}
-                                />
-                                <Button 
-                                    size="small"
-                                    onClick={() => setQuantity(quantity + 1)}
-                                >
-                                    +
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* 預估金額 */}
-                        <div style={{ 
-                            textAlign: 'center',
-                            fontSize: '12px',
-                            color: '#666',
-                            marginBottom: '12px'
-                        }}>
-                            預估金額: <span style={{ fontWeight: 'bold', color: '#1677ff' }}>
-                                ${(currentPrice * quantity).toFixed(2)}
-                            </span>
-                        </div>
-
-                        {/* 買入 / 賣出按鈕 */}
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <Button 
-                                color="success" 
-                                size="large"
-                                style={{ flex: 1 }}
-                                onClick={() => {
-                                    if (!socket) {
-                                        Toast.show({ icon: 'fail', content: 'WebSocket 未連線' });
-                                        return;
-                                    }
-                                    Toast.show({ content: `正在買入 ${quantity} 張...` });
-                                    socket.emit('BUY_STOCK', { quantity });
-                                }}
-                            >
-                                買入
-                            </Button>
-                            <Button 
-                                color="danger" 
-                                size="large"
-                                style={{ flex: 1 }}
-                                onClick={() => {
-                                    if (!socket) {
-                                        Toast.show({ icon: 'fail', content: 'WebSocket 未連線' });
-                                        return;
-                                    }
-                                    Toast.show({ content: `正在賣出 ${quantity} 張...` });
-                                    socket.emit('SELL_STOCK', { quantity });
-                                }}
-                            >
-                                賣出
-                            </Button>
-                        </div>
-                    </>
-                )}
-
-                {/* 合約交易 UI */}
-                {tradeMode === 'contract' && (
-                    <>
-                        {/* 方向選擇 */}
-                        <div style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '8px'
-                        }}>
-                            <span style={{ fontSize: '14px', color: '#666' }}>方向:</span>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <Button 
-                                    size="small"
-                                    fill={contractDirection === 'long' ? 'solid' : 'none'}
-                                    color={contractDirection === 'long' ? 'success' : 'default'}
-                                    onClick={() => setContractDirection('long')}
-                                >
-                                    做多
-                                </Button>
-                                <Button 
-                                    size="small"
-                                    fill={contractDirection === 'short' ? 'solid' : 'none'}
-                                    color={contractDirection === 'short' ? 'danger' : 'default'}
-                                    onClick={() => setContractDirection('short')}
-                                >
-                                    做空
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* 倍數選擇 */}
-                        <div style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '8px'
-                        }}>
-                            <span style={{ fontSize: '14px', color: '#666' }}>倍數:</span>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                {[2, 5, 10].map(lev => (
-                                    <Button 
-                                        key={lev}
-                                        size="small"
-                                        fill={leverage === lev ? 'solid' : 'none'}
-                                        color={leverage === lev ? 'primary' : 'default'}
-                                        onClick={() => setLeverage(lev)}
-                                    >
-                                        {lev}x
-                                    </Button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* 張數控制 */}
-                        <div style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '8px'
-                        }}>
-                            <span style={{ fontSize: '14px', color: '#666' }}>張數:</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Button 
-                                    size="small"
-                                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                                >
-                                    -
-                                </Button>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={quantity}
-                                    onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 1;
-                                        setQuantity(Math.max(1, val));
-                                    }}
-                                    style={{
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        width: '50px',
-                                        textAlign: 'center',
-                                        border: '1px solid #e5e5e5',
-                                        borderRadius: '4px',
-                                        padding: '4px 8px'
-                                    }}
-                                />
-                                <Button 
-                                    size="small"
-                                    onClick={() => setQuantity(quantity + 1)}
-                                >
-                                    +
-                                </Button>
-                            </div>
-                        </div>
-
-                        {/* 預估保證金 */}
-                        <div style={{ 
-                            textAlign: 'center',
-                            fontSize: '12px',
-                            color: '#666',
-                            marginBottom: '12px'
-                        }}>
-                            保證金: <span style={{ fontWeight: 'bold', color: '#1677ff' }}>
-                                ${((currentPrice / leverage) * quantity).toFixed(2)}
-                            </span>
-                        </div>
-
-                        {/* 下單按鈕 */}
-                        <Button 
-                            color="primary"
-                            size="large"
-                            block
-                            onClick={() => {
-                                Toast.show({
-                                    icon: 'fail',
-                                    content: '合約交易功能尚未實作',
-                                });
-                            }}
-                        >
-                            下單 (隔日結算)
-                        </Button>
-                    </>
-                )}
-            </div>
+            <TradingBar
+                socket={socket}
+                currentPrice={currentPrice}
+                isTrading={isTrading}
+                isGameStarted={gameState?.isGameStarted ?? false}
+                onTradingStart={() => setIsTrading(true)}
+            />
 
             {/* ==================== 使用者選單 Popup ==================== */}
             <Popup
