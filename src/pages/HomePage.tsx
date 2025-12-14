@@ -38,6 +38,9 @@ const HomePage: React.FC = () => {
     const [assets, setAssets] = useState<PersonalAssets>({ cash: 0, stocks: 0, debt: 0 });
     const [leaderboardData, setLeaderboardData] = useState<LeaderboardItem[]>([]);
     
+    // 新增：合約訂單狀態
+    const [activeContracts, setActiveContracts] = useState<any[]>([]);
+    
     // 交易操作狀態
     const [isTrading, setIsTrading] = useState(false); // 交易鎖定狀態
     
@@ -127,6 +130,11 @@ const HomePage: React.FC = () => {
             // 更新個人資產
             setAssets(payload.personal);
             
+            // 更新活躍合約（CRITICAL: 修復 refresh 後保證金消失的問題）
+            if (payload.activeContracts) {
+                setActiveContracts(payload.activeContracts);
+            }
+            
             // 更新排行榜（若有）
             if (payload.leaderboard) {
                 setLeaderboardData(payload.leaderboard);
@@ -171,24 +179,81 @@ const HomePage: React.FC = () => {
         newSocket.on('TRADE_SUCCESS', (payload: any) => {
             console.log('[Socket] 交易成功:', payload);
 
-            // 更新個人資產
-            setAssets({
-                cash: payload.newCash,
-                stocks: payload.newStocks,
-                debt: assets.debt, // 目前不處理負債
-            });
+            // 處理現貨交易
+            if (payload.action === 'BUY' || payload.action === 'SELL') {
+                setAssets({
+                    cash: payload.newCash,
+                    stocks: payload.newStocks,
+                    debt: payload.newDebt ?? assets.debt,
+                });
+
+                playSound('/sounds/coin.mp3');
+
+                Toast.show({
+                    icon: 'success',
+                    content: `交易成功！${payload.action === 'BUY' ? '買入' : '賣出'} ${payload.amount} 張，成交價 $${payload.price.toFixed(2)}`,
+                    duration: 2000,
+                });
+            }
+
+            // 處理合約下單
+            if (payload.action === 'BUY_CONTRACT') {
+                setAssets(prev => ({
+                    ...prev,
+                    cash: payload.newCash,
+                }));
+
+                // 更新活躍合約列表
+                setActiveContracts(prev => [...prev, payload.contractOrder]);
+
+                Toast.show({
+                    icon: 'success',
+                    content: `合約下單成功！${payload.type === 'LONG' ? '做多' : '做空'} ${payload.quantity} 張，槓桿 ${payload.leverage}x`,
+                    duration: 2000,
+                });
+            }
+
+            // 處理合約撤銷
+            if (payload.action === 'CANCEL_CONTRACT') {
+                setAssets(prev => ({
+                    ...prev,
+                    cash: payload.newCash,
+                }));
+
+                // 清空今日活躍合約（已撤銷）
+                setActiveContracts([]);
+
+                Toast.show({
+                    icon: 'success',
+                    content: payload.message || '合約撤銷成功',
+                    duration: 2000,
+                });
+            }
 
             // 解除交易鎖定
             setIsTrading(false);
+        });
 
-            // 播放音效
-            playSound('/sounds/coin.mp3');
+        // 合約結算通知
+        newSocket.on('CONTRACT_SETTLED', (payload: any) => {
+            console.log('[Socket] 合約結算:', payload);
 
-            // 顯示成功提示
+            // 更新資產
+            setAssets(prev => ({
+                ...prev,
+                cash: payload.newCash,
+                debt: payload.newDebt,
+            }));
+
+            // 清空活躍合約（已結算）
+            setActiveContracts([]);
+
+            // 顯示結算結果
+            const profitLoss = payload.pnl >= 0 ? `+${payload.pnl.toFixed(2)}` : payload.pnl.toFixed(2);
             Toast.show({
-                icon: 'success',
-                content: `交易成功！${payload.action === 'BUY' ? '買入' : '賣出'} ${payload.amount} 張，成交價 $${payload.price.toFixed(2)}`,
-                duration: 2000,
+                icon: payload.pnl >= 0 ? 'success' : 'fail',
+                content: `合約結算：${payload.type === 'LONG' ? '做多' : '做空'} ${payload.quantity} 張，損益 ${profitLoss}`,
+                duration: 3000,
             });
         });
 
@@ -221,6 +286,7 @@ const HomePage: React.FC = () => {
             newSocket.off('LEADERBOARD_UPDATE');
             newSocket.off('TRADE_SUCCESS');
             newSocket.off('TRADE_ERROR');
+            newSocket.off('CONTRACT_SETTLED');
             newSocket.disconnect();
         };
     }, [navigate]);
@@ -277,8 +343,9 @@ const HomePage: React.FC = () => {
         `avatar_${i.toString().padStart(2, '0')}.webp`
     );
 
-    // 計算總資產（現金 + 股票現值 - 負債）
-    const totalAssets = assets.cash + (assets.stocks * currentPrice) - assets.debt;
+    // 計算總資產（現金 + 股票現值 + 合約保證金 - 負債）
+    const activeContractsMargin = activeContracts.reduce((sum, contract) => sum + contract.margin, 0);
+    const totalAssets = assets.cash + (assets.stocks * currentPrice) + activeContractsMargin - assets.debt;
 
     if (!user) {
         return (
@@ -426,6 +493,77 @@ const HomePage: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+                        
+                        {/* 合約保證金詳細顯示（橫向滾動） */}
+                        {activeContracts.length > 0 && (
+                            <div style={{
+                                paddingTop: '12px',
+                                borderTop: '1px solid #f0f0f0',
+                                marginTop: '12px',
+                                display: 'flex',
+                            }}>
+                                {/* 合約保證金標籤和總金額（固定在左側） */}
+                                <div style={{ 
+                                    flex: '0 0 auto',
+                                    textAlign: 'center',
+                                    paddingRight: '12px',
+                                    minWidth: '90px',
+                                    position: 'relative'
+                                }}>
+                                    <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>
+                                        合約保證金
+                                    </div>
+                                    <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#1677ff' }}>
+                                        ${activeContractsMargin.toFixed(2)}
+                                    </div>
+                                    {/* 漸層邊框 */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        right: 0,
+                                        top: 0,
+                                        bottom: 0,
+                                        width: '12px',
+                                        background: 'linear-gradient(to right, #f0f0f0, transparent)'
+                                    }}></div>
+                                </div>
+
+                                {/* 合約詳細卡片（可橫向滾動） */}
+                                <div style={{
+                                    flex: 1,
+                                    overflowX: 'auto',
+                                    WebkitOverflowScrolling: 'touch',
+                                    display: 'flex',
+                                    gap: '6px'
+                                }}>
+                                    {activeContracts.map((contract, index) => (
+                                        <div 
+                                            key={contract.id || index}
+                                            style={{
+                                                flex: '0 0 auto',
+                                                textAlign: 'center',
+                                                minWidth: '70px'
+                                            }}
+                                        >
+                                            <div style={{ 
+                                                fontSize: '11px', 
+                                                color: contract.type === 'LONG' ? '#1890ff' : '#ff4d4f',
+                                                fontWeight: 'bold',
+                                                marginBottom: '4px'
+                                            }}>
+                                                {contract.type === 'LONG' ? '做多' : '做空'} {contract.leverage}倍
+                                            </div>
+                                            <div style={{ 
+                                                fontSize: '14px', 
+                                                fontWeight: 'bold',
+                                                color: '#333'
+                                            }}>
+                                                {contract.quantity}張
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -570,6 +708,8 @@ const HomePage: React.FC = () => {
                 isTrading={isTrading}
                 isGameStarted={gameState?.isGameStarted ?? false}
                 onTradingStart={() => setIsTrading(true)}
+                maxLeverage={gameState?.maxLeverage ?? 100}
+                cash={assets.cash}
             />
 
             {/* ==================== 使用者選單 Popup ==================== */}
