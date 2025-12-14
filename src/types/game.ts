@@ -7,6 +7,7 @@ export interface GameState {
     isGameStarted: boolean;  // 遊戲是否已啟動
     countdown: number;       // 倒數秒數（距離下一天）
     totalDays: number;       // 遊戲總天數（預設 120）
+    maxLeverage?: number;    // 最大槓桿倍數（可選，因為舊版 API 可能不返回）
 }
 
 /**
@@ -31,6 +32,19 @@ export interface PersonalAssets {
 }
 
 /**
+ * 活躍合約訂單
+ */
+export interface ActiveContract {
+    id: number;
+    type: string; // 'LONG' | 'SHORT'
+    leverage: number;
+    quantity: number;
+    margin: number;
+    entryPrice: number;
+    day: number;
+}
+
+/**
  * 完整狀態同步 Payload
  * 對應後端的 FULL_SYNC_STATE 事件
  */
@@ -41,6 +55,7 @@ export interface FullSyncPayload {
         history: StockData[];   // 股價歷史（Day 1 ~ currentDay）
     };
     personal: PersonalAssets;   // 個人資產
+    activeContracts?: ActiveContract[]; // 活躍合約列表
     news?: any[];               // 新聞列表（預留欄位）
     leaderboard?: any[];        // 排行榜（預留欄位）
 }
