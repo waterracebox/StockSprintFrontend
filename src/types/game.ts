@@ -45,6 +45,15 @@ export interface ActiveContract {
 }
 
 /**
+ * 【新增】新聞歷史單筆記錄
+ */
+export interface NewsItem {
+    day: number;
+    title: string;
+    content: string;
+}
+
+/**
  * 完整狀態同步 Payload
  * 對應後端的 FULL_SYNC_STATE 事件
  */
@@ -56,6 +65,6 @@ export interface FullSyncPayload {
     };
     personal: PersonalAssets;   // 個人資產
     activeContracts?: ActiveContract[]; // 活躍合約列表
-    news?: any[];               // 新聞列表（預留欄位）
+    newsHistory?: NewsItem[];   // 【新增】新聞歷史
     leaderboard?: any[];        // 排行榜（預留欄位）
 }

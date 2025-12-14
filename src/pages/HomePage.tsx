@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button, Toast, Avatar, Dialog, Popup, Grid, Modal } from 'antd-mobile';
 import { RightOutline, CloseOutline } from 'antd-mobile-icons';
 import { io, Socket } from 'socket.io-client';
 import { authAPI } from '../services/auth';
 import type { User } from '../services/auth';
-import type { GameState, StockData, FullSyncPayload, PersonalAssets } from '../types/game';
+import type { GameState, StockData, FullSyncPayload, PersonalAssets, NewsItem } from '../types/game';
 import StockChart from '../components/StockChart';
 import TradingBar from '../components/TradingBar';
 import Leaderboard from '../components/Leaderboard';
+import NewsModal from '../components/NewsModal';
 
 /**
  * 格式化倒數計時（秒數轉 MM:SS）
@@ -41,6 +42,10 @@ const HomePage: React.FC = () => {
     // 新增：合約訂單狀態
     const [activeContracts, setActiveContracts] = useState<any[]>([]);
     
+    // 【新增】新聞相關狀態
+    const [newsHistory, setNewsHistory] = useState<NewsItem[]>([]);
+    const [hasUnreadNews, setHasUnreadNews] = useState(false);
+    
     // 交易操作狀態
     const [isTrading, setIsTrading] = useState(false); // 交易鎖定狀態
     
@@ -51,10 +56,8 @@ const HomePage: React.FC = () => {
     
     // Modal 狀態
     const [showFullChartModal, setShowFullChartModal] = useState(false);
-    const [showNewsModal, setShowNewsModal] = useState(false);
     
     const navigate = useNavigate();
-    const location = useLocation();
 
     // ==================== Hash 錨點管理函數 ====================
     
@@ -104,18 +107,13 @@ const HomePage: React.FC = () => {
                 setShowFullChartModal(false);
             }
 
-            if (hash === '#news') {
-                setShowNewsModal(true);
-            } else {
-                setShowNewsModal(false);
-            }
+            // 【移除】showNewsModal 由 NewsModal 組件自己管理
 
             // 如果 Hash 為空，關閉所有浮動視窗
             if (!hash) {
                 setShowUserMenu(false);
                 setShowAvatarSelector(false);
                 setShowFullChartModal(false);
-                setShowNewsModal(false);
             }
         };
 
@@ -195,6 +193,7 @@ const HomePage: React.FC = () => {
         // 1. 完整狀態同步（連線/重連時收到）
         newSocket.on('FULL_SYNC_STATE', (payload: FullSyncPayload) => {
             console.log('[Socket] 收到完整狀態同步:', payload);
+            console.log('[Socket] 新聞歷史數量:', payload.newsHistory?.length || 0);
             
             // 更新遊戲狀態
             setGameState(payload.gameStatus);
@@ -208,6 +207,14 @@ const HomePage: React.FC = () => {
             // 更新活躍合約（CRITICAL: 修復 refresh 後保證金消失的問題）
             if (payload.activeContracts) {
                 setActiveContracts(payload.activeContracts);
+            }
+            
+            // 【新增】初始化新聞歷史（反轉順序，最新的在最上面）
+            if (payload.newsHistory) {
+                console.log('[Socket] 設定新聞歷史:', payload.newsHistory);
+                setNewsHistory([...payload.newsHistory].reverse());
+            } else {
+                console.warn('[Socket] payload.newsHistory 是 undefined 或 null');
             }
             
             // 更新排行榜（若有）
@@ -246,6 +253,25 @@ const HomePage: React.FC = () => {
         newSocket.on('LEADERBOARD_UPDATE', (payload: { data: LeaderboardItem[] }) => {
             console.log('[Socket] 排行榜更新:', payload);
             setLeaderboardData(payload.data);
+        });
+
+        // 【新增】5. 新聞更新（即時廣播）
+        newSocket.on('NEWS_UPDATE', (payload: NewsItem) => {
+            console.log('[Socket] 收到新聞廣播:', payload);
+
+            // 將新新聞加入歷史（置頂）
+            setNewsHistory(prev => [payload, ...prev]);
+
+            // 標記為有未讀新聞
+            setHasUnreadNews(true);
+
+            // 顯示 Toast 快訊
+            Toast.show({
+                icon: 'success',
+                content: `📰 ${payload.title}`,
+                position: 'top',
+                duration: 3000,
+            });
         });
 
         // ==================== 交易事件監聽 ====================
@@ -698,10 +724,31 @@ const HomePage: React.FC = () => {
                                 borderRadius: '12px',
                                 backgroundColor: '#fff',
                                 padding: '12px',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                                position: 'relative'
                             }}
-                            onClick={() => openModalWithHash('#news', setShowNewsModal)}
+                            onClick={() => {
+                                // 直接設置 hash，NewsModal 會自動監聽並打開
+                                window.history.pushState(null, '', '#news');
+                                // 手動觸發 hashchange 事件
+                                window.dispatchEvent(new HashChangeEvent('hashchange'));
+                                setHasUnreadNews(false); // 清除未讀標記
+                            }}
                         >
+                            {/* 未讀標記 Badge */}
+                            {hasUnreadNews && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '8px',
+                                    right: '8px',
+                                    width: '8px',
+                                    height: '8px',
+                                    backgroundColor: '#ff3141',
+                                    borderRadius: '50%',
+                                    zIndex: 1
+                                }} />
+                            )}
+                            
                             <div style={{ 
                                 fontSize: '12px', 
                                 fontWeight: 'bold', 
@@ -718,14 +765,25 @@ const HomePage: React.FC = () => {
                                 height: '120px',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                justifyContent: 'center',
+                                justifyContent: newsHistory.length > 0 ? 'flex-start' : 'center',
                                 fontSize: '11px',
                                 color: '#999',
-                                lineHeight: '1.8'
+                                lineHeight: '1.8',
+                                overflow: 'hidden'
                             }}>
-                                <div>• 新產品發表</div>
-                                <div>• 財報亮眼</div>
-                                <div>• 市場傳聞</div>
+                                {newsHistory.length > 0 ? (
+                                    newsHistory.slice(0, 5).map((news, index) => (
+                                        <div key={index} style={{
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                            • {news.title}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div style={{ textAlign: 'center' }}>目前尚無新聞</div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -990,48 +1048,6 @@ const HomePage: React.FC = () => {
                 }
             />
 
-            {/* ==================== 新聞列表 Modal ==================== */}
-            <Modal
-                visible={showNewsModal}
-                onClose={() => closeModalWithHash(setShowNewsModal)}
-                closeOnMaskClick={false}
-                title={
-                    <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
-                        alignItems: 'center'
-                    }}>
-                        <span>股票相關新聞</span>
-                        <CloseOutline 
-                            fontSize={20}
-                            onClick={() => closeModalWithHash(setShowNewsModal)}
-                            style={{ cursor: 'pointer', color: '#999' }}
-                        />
-                    </div>
-                }
-                content={
-                    <div style={{ 
-                        minHeight: '400px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        textAlign: 'center',
-                        padding: '40px 20px'
-                    }}>
-                        <div>
-                            <div style={{ fontSize: '64px', marginBottom: '20px' }}>📰</div>
-                            <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px', color: '#333' }}>
-                                新聞功能尚未實作
-                            </div>
-                            <div style={{ fontSize: '14px', color: '#999', lineHeight: '1.6' }}>
-                                此功能將在未來版本中推出<br />
-                                敬請期待
-                            </div>
-                        </div>
-                    </div>
-                }
-            />
-
             {/* ==================== 頭像選擇器 Popup ==================== */}
             <Popup
                 visible={showAvatarSelector}
@@ -1146,6 +1162,12 @@ const HomePage: React.FC = () => {
                     </Grid>
                 </div>
             </Popup>
+
+            {/* ==================== 【新增】新聞列表 Modal ==================== */}
+            <NewsModal 
+                newsHistory={newsHistory}
+                onClose={() => setHasUnreadNews(false)}
+            />
         </div>
     );
 };
