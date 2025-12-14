@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Toast, Dialog, Modal } from 'antd-mobile';
 import { QuestionCircleOutline, CloseOutline } from 'antd-mobile-icons';
 import { Socket } from 'socket.io-client';
@@ -30,6 +30,53 @@ const TradingBar: React.FC<TradingBarProps> = ({
     const [leverage, setLeverage] = useState<number>(2);
     const [customLeverage, setCustomLeverage] = useState<string>('2');
     const [showTutorial, setShowTutorial] = useState(false);
+
+    // ==================== Hash 錨點管理函數 ====================
+    
+    /**
+     * 打開教學彈窗並添加 Hash 錨點
+     */
+    const openTutorialWithHash = () => {
+        if (window.location.hash !== '#contract-tutorial') {
+            window.history.pushState(null, '', `${window.location.pathname}#contract-tutorial`);
+        }
+        setShowTutorial(true);
+    };
+
+    /**
+     * 關閉教學彈窗並移除 Hash 錨點
+     */
+    const closeTutorialWithHash = () => {
+        setShowTutorial(false);
+        if (window.location.hash === '#contract-tutorial') {
+            window.history.back();
+        }
+    };
+
+    /**
+     * 監聽 popstate 事件（手機返回按鈕）
+     */
+    useEffect(() => {
+        const handlePopState = () => {
+            const hash = window.location.hash;
+            
+            if (hash === '#contract-tutorial') {
+                setShowTutorial(true);
+            } else {
+                setShowTutorial(false);
+            }
+        };
+
+        // 頁面載入時檢查 Hash
+        handlePopState();
+
+        // 監聽 popstate 事件
+        window.addEventListener('popstate', handlePopState);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, []);
 
     // 處理買入
     const handleBuy = () => {
@@ -177,7 +224,7 @@ const TradingBar: React.FC<TradingBarProps> = ({
                             <QuestionCircleOutline 
                                 fontSize={16}
                                 style={{ cursor: 'pointer', color: '#1677ff' }}
-                                onClick={() => setShowTutorial(true)}
+                                onClick={openTutorialWithHash}
                             />
                         )}
                     </div>
@@ -208,6 +255,13 @@ const TradingBar: React.FC<TradingBarProps> = ({
                     }}>
                         <span style={{ fontSize: '14px', color: '#666' }}>張數:</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Button 
+                                size="small"
+                                color="default"
+                                onClick={() => setQuantity(1)}
+                            >
+                                最小
+                            </Button>
                             <Button 
                                 size="small"
                                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -243,7 +297,7 @@ const TradingBar: React.FC<TradingBarProps> = ({
                                 color="default"
                                 onClick={handleMaxSpot}
                             >
-                                最大買入
+                                最大
                             </Button>
                         </div>
                     </div>
@@ -331,7 +385,6 @@ const TradingBar: React.FC<TradingBarProps> = ({
                                 style={{ cursor: 'pointer', color: '#999' }}
                                 onClick={() => {
                                     Dialog.alert({
-                                        // title: '保證金計算公式',
                                         content: <div>
                                             <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>保證金計算公式</div>
                                             <div style={{ marginBottom: '16px' }}>保證金 = (股價 × 張數) ÷ 槓桿倍數</div>
@@ -383,6 +436,13 @@ const TradingBar: React.FC<TradingBarProps> = ({
                     }}>
                         <span style={{ fontSize: '14px', color: '#666' }}>張數:</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Button 
+                                size="small"
+                                color="default"
+                                onClick={() => setQuantity(1)}
+                            >
+                                最小
+                            </Button>
                             <Button 
                                 size="small"
                                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -461,8 +521,8 @@ const TradingBar: React.FC<TradingBarProps> = ({
                     {/* 教學彈窗 */}
                     <Modal
                         visible={showTutorial}
-                        onClose={() => setShowTutorial(false)}
-                        closeOnMaskClick={true}
+                        onClose={closeTutorialWithHash}
+                        closeOnMaskClick={false}
                         content={
                             <div style={{ 
                                 position: 'relative', 
@@ -483,7 +543,7 @@ const TradingBar: React.FC<TradingBarProps> = ({
                                         padding: '4px',
                                         zIndex: 10
                                     }}
-                                    onClick={() => setShowTutorial(false)}
+                                    onClick={closeTutorialWithHash}
                                 />
                                 {/* 圖片占滿彈窗 */}
                                 <img 

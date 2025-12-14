@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button, Toast, Avatar, Dialog, Popup, Grid, Modal } from 'antd-mobile';
 import { RightOutline, CloseOutline } from 'antd-mobile-icons';
 import { io, Socket } from 'socket.io-client';
@@ -54,6 +54,81 @@ const HomePage: React.FC = () => {
     const [showNewsModal, setShowNewsModal] = useState(false);
     
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // ==================== Hash 錨點管理函數 ====================
+    
+    /**
+     * 打開浮動視窗並添加 Hash 錨點
+     */
+    const openModalWithHash = (hash: string, setterFn: (value: boolean) => void) => {
+        if (window.location.hash !== hash) {
+            window.history.pushState(null, '', `${window.location.pathname}${hash}`);
+        }
+        setterFn(true);
+    };
+
+    /**
+     * 關閉浮動視窗並移除 Hash 錨點
+     */
+    const closeModalWithHash = (setterFn: (value: boolean) => void) => {
+        setterFn(false);
+        if (window.location.hash) {
+            window.history.back();
+        }
+    };
+
+    /**
+     * 監聽 popstate 事件（手機返回按鈕）
+     */
+    useEffect(() => {
+        const handlePopState = () => {
+            const hash = window.location.hash;
+            
+            // 根據當前 Hash 決定要打開或關閉哪個浮動視窗
+            if (hash === '#user-menu') {
+                setShowUserMenu(true);
+            } else {
+                setShowUserMenu(false);
+            }
+
+            if (hash === '#avatar-selector') {
+                setShowAvatarSelector(true);
+            } else {
+                setShowAvatarSelector(false);
+            }
+
+            if (hash === '#chart') {
+                setShowFullChartModal(true);
+            } else {
+                setShowFullChartModal(false);
+            }
+
+            if (hash === '#news') {
+                setShowNewsModal(true);
+            } else {
+                setShowNewsModal(false);
+            }
+
+            // 如果 Hash 為空，關閉所有浮動視窗
+            if (!hash) {
+                setShowUserMenu(false);
+                setShowAvatarSelector(false);
+                setShowFullChartModal(false);
+                setShowNewsModal(false);
+            }
+        };
+
+        // 頁面載入時檢查 Hash（處理直接訪問 /home#chart 的情況）
+        handlePopState();
+
+        // 監聽 popstate 事件
+        window.addEventListener('popstate', handlePopState);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, []);
 
     // 取得使用者資訊
     useEffect(() => {
@@ -327,8 +402,8 @@ const HomePage: React.FC = () => {
             const response = await authAPI.updateAvatar(selectedAvatar);
             setUser(response.user);
             Toast.show({ icon: 'success', content: '頭像更新成功' });
-            setShowAvatarSelector(false);
-            setShowUserMenu(false);
+            closeModalWithHash(setShowAvatarSelector);
+            closeModalWithHash(setShowUserMenu);
         } catch (error: any) {
             console.error('[Avatar] 更新失敗:', error);
             Toast.show({ 
@@ -420,7 +495,7 @@ const HomePage: React.FC = () => {
                         gap: '8px',
                         cursor: 'pointer'
                     }}
-                    onClick={() => setShowUserMenu(true)}
+                    onClick={() => openModalWithHash('#user-menu', setShowUserMenu)}
                 >
                     <span style={{ fontSize: '14px', fontWeight: 'bold' }}>
                         {user.displayName}
@@ -582,7 +657,7 @@ const HomePage: React.FC = () => {
                                 padding: '12px',
                                 boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
                             }}
-                            onClick={() => setShowFullChartModal(true)}
+                            onClick={() => openModalWithHash('#chart', setShowFullChartModal)}
                         >
                             <div style={{ 
                                 fontSize: '12px', 
@@ -625,7 +700,7 @@ const HomePage: React.FC = () => {
                                 padding: '12px',
                                 boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
                             }}
-                            onClick={() => setShowNewsModal(true)}
+                            onClick={() => openModalWithHash('#news', setShowNewsModal)}
                         >
                             <div style={{ 
                                 fontSize: '12px', 
@@ -715,7 +790,7 @@ const HomePage: React.FC = () => {
             {/* ==================== 使用者選單 Popup ==================== */}
             <Popup
                 visible={showUserMenu}
-                onMaskClick={() => setShowUserMenu(false)}
+                onMaskClick={undefined}
                 position='right'
                 // showCloseButton
                 bodyStyle={{ 
@@ -734,7 +809,7 @@ const HomePage: React.FC = () => {
                         <CloseOutline 
                             fontSize={24} 
                             style={{ cursor: 'pointer', color: '#999' }}
-                            onClick={() => setShowUserMenu(false)}
+                            onClick={() => closeModalWithHash(setShowUserMenu)}
                         />
                     </div>
 
@@ -776,7 +851,7 @@ const HomePage: React.FC = () => {
                             }}
                             onClick={() => {
                                 setSelectedAvatar(user?.avatar || '');
-                                setShowAvatarSelector(true);
+                                openModalWithHash('#avatar-selector', setShowAvatarSelector);
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
                             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -798,7 +873,7 @@ const HomePage: React.FC = () => {
                                     transition: 'background-color 0.2s'
                                 }}
                                 onClick={() => {
-                                    setShowUserMenu(false);
+                                    closeModalWithHash(setShowUserMenu);
                                     navigate('/admin');
                                 }}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
@@ -827,7 +902,7 @@ const HomePage: React.FC = () => {
                                     confirmText: '登出',
                                     cancelText: '取消',
                                     onConfirm: () => {
-                                        setShowUserMenu(false);
+                                        closeModalWithHash(setShowUserMenu);
                                         handleLogout();
                                     }
                                 });
@@ -845,8 +920,8 @@ const HomePage: React.FC = () => {
             {/* ==================== 完整股票趨勢圖 Modal ==================== */}
             <Modal
                 visible={showFullChartModal}
-                onClose={() => setShowFullChartModal(false)}
-                closeOnMaskClick={true}
+                onClose={() => closeModalWithHash(setShowFullChartModal)}
+                closeOnMaskClick={false}
                 title={
                     <div style={{ 
                         display: 'flex', 
@@ -856,7 +931,7 @@ const HomePage: React.FC = () => {
                         <span>完整股票趨勢圖</span>
                         <CloseOutline 
                             fontSize={20}
-                            onClick={() => setShowFullChartModal(false)}
+                            onClick={() => closeModalWithHash(setShowFullChartModal)}
                             style={{ cursor: 'pointer', color: '#999' }}
                         />
                     </div>
@@ -918,8 +993,8 @@ const HomePage: React.FC = () => {
             {/* ==================== 新聞列表 Modal ==================== */}
             <Modal
                 visible={showNewsModal}
-                onClose={() => setShowNewsModal(false)}
-                closeOnMaskClick={true}
+                onClose={() => closeModalWithHash(setShowNewsModal)}
+                closeOnMaskClick={false}
                 title={
                     <div style={{ 
                         display: 'flex', 
@@ -929,7 +1004,7 @@ const HomePage: React.FC = () => {
                         <span>股票相關新聞</span>
                         <CloseOutline 
                             fontSize={20}
-                            onClick={() => setShowNewsModal(false)}
+                            onClick={() => closeModalWithHash(setShowNewsModal)}
                             style={{ cursor: 'pointer', color: '#999' }}
                         />
                     </div>
@@ -960,7 +1035,7 @@ const HomePage: React.FC = () => {
             {/* ==================== 頭像選擇器 Popup ==================== */}
             <Popup
                 visible={showAvatarSelector}
-                onMaskClick={() => setShowAvatarSelector(false)}
+                onMaskClick={undefined}
                 position='right'
                 bodyStyle={{ 
                     width: '320px',
@@ -997,7 +1072,7 @@ const HomePage: React.FC = () => {
                         <CloseOutline 
                             fontSize={24} 
                             style={{ cursor: 'pointer', color: '#999' }}
-                            onClick={() => setShowAvatarSelector(false)}
+                            onClick={() => closeModalWithHash(setShowAvatarSelector)}
                         />
                     </div>
                 </div>
