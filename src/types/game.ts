@@ -8,6 +8,8 @@ export interface GameState {
     countdown: number;       // 倒數秒數（距離下一天）
     totalDays: number;       // 遊戲總天數（預設 120）
     maxLeverage?: number;    // 最大槓桿倍數（可選，因為舊版 API 可能不返回）
+    dailyInterestRate?: number; // 【新增】日利率
+    maxLoanAmount?: number;     // 【新增】每日最高借款額度
 }
 
 /**
@@ -29,6 +31,7 @@ export interface PersonalAssets {
     cash: number;   // 現金
     stocks: number; // 持股數量
     debt: number;   // 負債金額
+    dailyBorrowed?: number; // 【新增】當日已借金額
 }
 
 /**

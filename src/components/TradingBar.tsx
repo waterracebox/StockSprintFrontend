@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button, Toast, Dialog, Modal } from 'antd-mobile';
 import { QuestionCircleOutline, CloseOutline } from 'antd-mobile-icons';
 import { Socket } from 'socket.io-client';
+import LoanSharkModal from './LoanSharkModal';
 
 interface TradingBarProps {
     socket: Socket | null;
@@ -11,6 +12,11 @@ interface TradingBarProps {
     onTradingStart: () => void;
     maxLeverage?: number; // 新增：從後端取得的最大槓桿倍數
     cash?: number; // 新增：使用者現金
+    // 【新增】地下錢莊相關 props
+    debt?: number;
+    dailyBorrowed?: number;
+    maxLoanAmount?: number;
+    dailyInterestRate?: number;
 }
 
 const TradingBar: React.FC<TradingBarProps> = ({ 
@@ -20,7 +26,11 @@ const TradingBar: React.FC<TradingBarProps> = ({
     isGameStarted,
     onTradingStart,
     maxLeverage = 100, // 預設值 100（向後相容）
-    cash = 0 // 預設值 0
+    cash = 0, // 預設值 0
+    debt = 0,
+    dailyBorrowed = 0,
+    maxLoanAmount = 1000,
+    dailyInterestRate = 0.0001
 }) => {
     const [tradeMode, setTradeMode] = useState<'spot' | 'contract'>('spot');
     const [quantity, setQuantity] = useState<number>(1);
@@ -30,6 +40,14 @@ const TradingBar: React.FC<TradingBarProps> = ({
     const [leverage, setLeverage] = useState<number>(2);
     const [customLeverage, setCustomLeverage] = useState<string>('2');
     const [showTutorial, setShowTutorial] = useState(false);
+
+    // 【新增】地下錢莊浮動視窗狀態
+    const [showLoanShark, setShowLoanShark] = useState(false);
+
+    // ==================== 監聽 tradeMode 切換，重置張數 ====================
+    useEffect(() => {
+        setQuantity(1); // 切換交易模式時重置為 1 張
+    }, [tradeMode]);
 
     // ==================== Hash 錨點管理函數 ====================
     
@@ -54,6 +72,26 @@ const TradingBar: React.FC<TradingBarProps> = ({
     };
 
     /**
+     * 打開地下錢莊浮動視窗並添加 Hash 錨點
+     */
+    const openLoanSharkWithHash = () => {
+        if (window.location.hash !== '#loanshark') {
+            window.history.pushState(null, '', `${window.location.pathname}#loanshark`);
+        }
+        setShowLoanShark(true);
+    };
+
+    /**
+     * 關閉地下錢莊浮動視窗並移除 Hash 錨點
+     */
+    const closeLoanSharkWithHash = () => {
+        setShowLoanShark(false);
+        if (window.location.hash === '#loanshark') {
+            window.history.back();
+        }
+    };
+
+    /**
      * 監聽 popstate 事件（手機返回按鈕）
      */
     useEffect(() => {
@@ -64,6 +102,12 @@ const TradingBar: React.FC<TradingBarProps> = ({
                 setShowTutorial(true);
             } else {
                 setShowTutorial(false);
+            }
+
+            if (hash === '#loanshark') {
+                setShowLoanShark(true);
+            } else {
+                setShowLoanShark(false);
             }
         };
 
@@ -229,18 +273,45 @@ const TradingBar: React.FC<TradingBarProps> = ({
                         )}
                     </div>
                 </div>
-                <Button 
-                    size="small"
-                    color="warning"
-                    onClick={() => {
-                        Toast.show({
-                            icon: 'fail',
-                            content: '小遊戲功能尚未實作',
-                        });
-                    }}
-                >
-                    🎮 小遊戲
-                </Button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <Button 
+                        size="small"
+                        color="warning"
+                        onClick={() => {
+                            Toast.show({
+                                icon: 'fail',
+                                content: '小遊戲功能尚未實作',
+                            });
+                        }}
+                    >
+                        🎮 小遊戲
+                    </Button>
+                    
+                    {/* 【新增】地下錢莊按鈕 */}
+                    <Button
+                        size="small"
+                        fill="none"
+                        style={{
+                            padding: '4px 8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                        onClick={openLoanSharkWithHash}
+                    >
+                        <img 
+                            src="/images/loan_sharking.webp" 
+                            alt="地下錢莊"
+                            style={{
+                                width: '28px',
+                                height: '28px',
+                                objectFit: 'contain',
+                                filter: debt > 0 ? 'none' : 'grayscale(100%)',
+                                display: 'block'
+                            }}
+                        />
+                    </Button>
+                </div>
             </div>
 
             {/* 現貨交易 UI */}
@@ -423,7 +494,7 @@ const TradingBar: React.FC<TradingBarProps> = ({
                                     borderRadius: '4px',
                                     padding: '4px'
                                 }}
-                            />倍</div>
+                            /> {" "}倍 </div>
                         </div>
                     </div>
 
@@ -559,6 +630,15 @@ const TradingBar: React.FC<TradingBarProps> = ({
                     />
                 </>
             )}
+
+            {/* ==================== 【新增】地下錢莊浮動視窗 ==================== */}
+            <LoanSharkModal 
+                isOpen={showLoanShark}
+                onClose={closeLoanSharkWithHash}
+                socket={socket}
+                userAssets={{ cash, debt, dailyBorrowed }}
+                gameConfig={{ maxLoanAmount, dailyInterestRate }}
+            />
         </div>
     );
 };

@@ -274,6 +274,17 @@ const HomePage: React.FC = () => {
             });
         });
 
+        // 【新增】6. 資產更新（換日時推送）
+        newSocket.on('ASSETS_UPDATE', (payload: { cash: number; stocks: number; debt: number; dailyBorrowed: number }) => {
+            console.log('[Socket] 資產更新:', payload);
+            setAssets({
+                cash: payload.cash,
+                stocks: payload.stocks,
+                debt: payload.debt,
+                dailyBorrowed: payload.dailyBorrowed,
+            });
+        });
+
         // ==================== 交易事件監聽 ====================
 
         // 交易成功
@@ -327,6 +338,24 @@ const HomePage: React.FC = () => {
                 Toast.show({
                     icon: 'success',
                     content: payload.message || '合約撤銷成功',
+                    duration: 2000,
+                });
+            }
+
+            // 【新增】處理借款/還款
+            if (payload.action === 'BORROW' || payload.action === 'REPAY') {
+                setAssets(prev => ({
+                    ...prev,
+                    cash: payload.newCash,
+                    debt: payload.newDebt ?? prev.debt,
+                    dailyBorrowed: payload.dailyBorrowed ?? prev.dailyBorrowed, // 【新增】更新當日已借金額
+                }));
+
+                Toast.show({
+                    icon: 'success',
+                    content: payload.action === 'BORROW' 
+                        ? `借款成功！+$${payload.amount}` 
+                        : `還款成功！-$${payload.amount}`,
                     duration: 2000,
                 });
             }
@@ -385,6 +414,8 @@ const HomePage: React.FC = () => {
             newSocket.off('GAME_STATE_UPDATE');
             newSocket.off('PRICE_UPDATE');
             newSocket.off('LEADERBOARD_UPDATE');
+            newSocket.off('NEWS_UPDATE');
+            newSocket.off('ASSETS_UPDATE');
             newSocket.off('TRADE_SUCCESS');
             newSocket.off('TRADE_ERROR');
             newSocket.off('CONTRACT_SETTLED');
@@ -843,6 +874,10 @@ const HomePage: React.FC = () => {
                 onTradingStart={() => setIsTrading(true)}
                 maxLeverage={gameState?.maxLeverage ?? 100}
                 cash={assets.cash}
+                debt={assets.debt}
+                dailyBorrowed={assets.dailyBorrowed ?? 0}
+                maxLoanAmount={gameState?.maxLoanAmount ?? 1000}
+                dailyInterestRate={gameState?.dailyInterestRate ?? 0.0001}
             />
 
             {/* ==================== 使用者選單 Popup ==================== */}
@@ -960,8 +995,18 @@ const HomePage: React.FC = () => {
                                     confirmText: '登出',
                                     cancelText: '取消',
                                     onConfirm: () => {
-                                        closeModalWithHash(setShowUserMenu);
-                                        handleLogout();
+                                        // 先關閉 Modal
+                                        setShowUserMenu(false);
+                                        
+                                        // 清除所有 hash
+                                        if (window.location.hash) {
+                                            window.history.replaceState(null, '', window.location.pathname);
+                                        }
+                                        
+                                        // 延遲執行登出，確保 modal 完全關閉
+                                        setTimeout(() => {
+                                            handleLogout();
+                                        }, 100);
                                     }
                                 });
                             }}
