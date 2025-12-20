@@ -140,9 +140,15 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isAdmin }) => {
                         <Form.Item
                             name="username"
                             label="帳號"
-                            rules={[{ required: true, message: '請輸入帳號' }]}
+                            rules={[
+                                { required: true, message: '請輸入帳號' },
+                                {
+                                    pattern: /^[a-zA-Z0-9]+$/,
+                                    message: '帳號只能包含英文字母和數字',
+                                },
+                            ]}
                         >
-                            <Input placeholder="請輸入帳號" autoComplete="username" />
+                            <Input placeholder="請輸入帳號（僅限英文、數字）" autoComplete="username" />
                         </Form.Item>
 
                         <Form.Item

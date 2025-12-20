@@ -305,9 +305,15 @@ const HomePage: React.FC = () => {
             });
         });
 
-        // 【新增】8. 強制登出（Admin 重置遊戲時推送）
-        newSocket.on('FORCE_LOGOUT', (payload: { reason: string }) => {
+        // 【新增】8. 強制登出（Admin 重置遊戲或刪除帳號時推送）
+        newSocket.on('FORCE_LOGOUT', (payload: { reason: string; userId?: number }) => {
             console.log('[Socket] 強制登出:', payload.reason);
+            
+            // 如果指定了 userId，只有該使用者才會被登出
+            if (payload.userId && user && payload.userId !== user.id) {
+                return;
+            }
+            
             Toast.show({
                 icon: 'fail',
                 content: payload.reason || '遊戲已重置，請重新登入',
@@ -317,6 +323,40 @@ const HomePage: React.FC = () => {
                 localStorage.removeItem('token');
                 navigate('/login');
             }, 3000);
+        });
+
+        // 【新增】9. 使用者資料更新（Admin 修改使用者資料時推送）
+        newSocket.on('USER_DATA_UPDATED', (payload: { userId: number; displayName: string; cash: number; stocks: number; debt: number; firstSignIn: boolean }) => {
+            console.log('[Socket] 使用者資料已更新:', payload);
+            console.log('[Socket] 當前 user.id:', user?.id, '收到的 userId:', payload.userId);
+            
+            // 使用 setUser 的函數式更新來獲取最新的 user 狀態
+            setUser((currentUser) => {
+                if (currentUser && payload.userId === currentUser.id) {
+                    console.log('[Socket] 符合條件，更新使用者資料');
+                    
+                    // 更新資產
+                    setAssets((prevAssets) => ({
+                        cash: payload.cash,
+                        stocks: payload.stocks,
+                        debt: payload.debt,
+                        dailyBorrowed: prevAssets.dailyBorrowed, // 保持原值
+                    }));
+                    
+                    // 顯示提示
+                    Toast.show({
+                        icon: 'success',
+                        content: '您的資料已被管理員更新',
+                        duration: 2000,
+                    });
+                    
+                    // 返回更新後的使用者資料
+                    return { ...currentUser, displayName: payload.displayName };
+                }
+                
+                // 不符合條件，返回原資料
+                return currentUser;
+            });
         });
 
         // ==================== 交易事件監聽 ====================

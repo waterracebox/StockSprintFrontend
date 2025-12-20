@@ -6,6 +6,8 @@ import { authAPI } from '../services/auth';
 import type { User } from '../services/auth';
 import AdminControlTab from '../components/AdminControlTab';
 import AdminParamsTab from '../components/AdminParamsTab';
+import AdminUsersTab from '../components/AdminUsersTab';
+import AdminUserModals from '../components/AdminUserModals';
 import MonitorModal from '../components/MonitorModal';
 
 const AdminPage: React.FC = () => {
@@ -59,6 +61,17 @@ const AdminPage: React.FC = () => {
         };
     }, [user]);
 
+    // 監聽使用者列表刷新事件
+    useEffect(() => {
+        const handleRefresh = () => {
+            console.log('[Admin] 使用者列表已刷新');
+            // AdminUsersTab 會自動重新載入
+        };
+
+        window.addEventListener('user-list-refresh', handleRefresh);
+        return () => window.removeEventListener('user-list-refresh', handleRefresh);
+    }, []);
+
     if (!user) {
         return <div style={{ textAlign: 'center', padding: '50px' }}>載入中...</div>;
     }
@@ -101,9 +114,7 @@ const AdminPage: React.FC = () => {
                     <AdminParamsTab />
                 </Tabs.Tab>
                 <Tabs.Tab title='玩家管理' key='users'>
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
-                        敬請期待
-                    </div>
+                    <AdminUsersTab />
                 </Tabs.Tab>
                 <Tabs.Tab title='遊戲劇本' key='script'>
                     <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
@@ -117,6 +128,9 @@ const AdminPage: React.FC = () => {
                 isOpen={showMonitor}
                 onClose={() => setShowMonitor(false)}
             />
+
+            {/* 使用者編輯/刪除浮動視窗 */}
+            <AdminUserModals />
         </div>
     );
 };
