@@ -274,6 +274,13 @@ const HomePage: React.FC = () => {
             });
         });
 
+        // 【新增】5-1. 清空新聞（遊戲開始時觸發）
+        newSocket.on('CLEAR_NEWS', () => {
+            console.log('[Socket] 收到清空新聞事件');
+            setNewsHistory([]);
+            setHasUnreadNews(false);
+        });
+
         // 【新增】6. 資產更新（換日時推送）
         newSocket.on('ASSETS_UPDATE', (payload: { cash: number; stocks: number; debt: number; dailyBorrowed: number }) => {
             console.log('[Socket] 資產更新:', payload);
@@ -283,6 +290,33 @@ const HomePage: React.FC = () => {
                 debt: payload.debt,
                 dailyBorrowed: payload.dailyBorrowed,
             });
+        });
+
+        // 【新增】7. 地下錢莊參數更新（Admin 修改時推送）
+        newSocket.on('LOAN_CONFIG_UPDATE', (payload: { dailyInterestRate: number; maxLoanAmount: number }) => {
+            console.log('[Socket] 地下錢莊參數更新:', payload);
+            setGameState((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    dailyInterestRate: payload.dailyInterestRate,
+                    maxLoanAmount: payload.maxLoanAmount,
+                };
+            });
+        });
+
+        // 【新增】8. 強制登出（Admin 重置遊戲時推送）
+        newSocket.on('FORCE_LOGOUT', (payload: { reason: string }) => {
+            console.log('[Socket] 強制登出:', payload.reason);
+            Toast.show({
+                icon: 'fail',
+                content: payload.reason || '遊戲已重置，請重新登入',
+                duration: 3000,
+            });
+            setTimeout(() => {
+                localStorage.removeItem('token');
+                navigate('/login');
+            }, 3000);
         });
 
         // ==================== 交易事件監聽 ====================
@@ -415,7 +449,10 @@ const HomePage: React.FC = () => {
             newSocket.off('PRICE_UPDATE');
             newSocket.off('LEADERBOARD_UPDATE');
             newSocket.off('NEWS_UPDATE');
+            newSocket.off('CLEAR_NEWS');
             newSocket.off('ASSETS_UPDATE');
+            newSocket.off('LOAN_CONFIG_UPDATE');
+            newSocket.off('FORCE_LOGOUT'); // 【新增】
             newSocket.off('TRADE_SUCCESS');
             newSocket.off('TRADE_ERROR');
             newSocket.off('CONTRACT_SETTLED');
@@ -966,7 +1003,7 @@ const HomePage: React.FC = () => {
                                     transition: 'background-color 0.2s'
                                 }}
                                 onClick={() => {
-                                    closeModalWithHash(setShowUserMenu);
+                                    setShowUserMenu(false);
                                     navigate('/admin');
                                 }}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
