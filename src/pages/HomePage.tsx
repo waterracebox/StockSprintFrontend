@@ -957,6 +957,7 @@ const HomePage: React.FC = () => {
                 onTradingStart={() => setIsTrading(true)}
                 maxLeverage={gameState?.maxLeverage ?? 100}
                 cash={assets.cash}
+                stocks={assets.stocks}
                 debt={assets.debt}
                 dailyBorrowed={assets.dailyBorrowed ?? 0}
                 maxLoanAmount={gameState?.maxLoanAmount ?? 1000}

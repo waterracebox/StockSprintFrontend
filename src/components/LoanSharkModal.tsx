@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Toast, Dialog, Popup } from 'antd-mobile';
+import { Button, Toast, Dialog, Popup, Switch, Slider } from 'antd-mobile';
 import { CloseOutline } from 'antd-mobile-icons';
 import { Socket } from 'socket.io-client';
 
@@ -26,13 +26,19 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
     gameConfig
 }) => {
     const [amount, setAmount] = useState<number>(100);
+    const [amountInput, setAmountInput] = useState<string>('100');
     const [merchantState, setMerchantState] = useState<'NORMAL' | 'HAPPY'>('NORMAL');
+    const [mode, setMode] = useState<'BORROW' | 'REPAY'>('BORROW');
 
     const { cash, debt, dailyBorrowed = 0 } = userAssets;
     const { maxLoanAmount, dailyInterestRate } = gameConfig;
 
-    // 計算剩餘額度
+    // 計算剩餘額度 / 還款上限
     const remainingLimit = maxLoanAmount - dailyBorrowed;
+    const repayMax = Math.max(0, Math.min(cash, debt));
+    const sliderMax = mode === 'BORROW' ? Math.max(0, remainingLimit) : repayMax;
+    const sliderStep = 0.01; // 固定 0.01 以便精確還款到上限
+    const formatAmount = (val: number) => val.toFixed(2);
 
     // 黑心商人圖片與對話
     const merchantImage = merchantState === 'NORMAL' 
@@ -65,6 +71,38 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
         };
     }, [socket]);
 
+    // 依上限修正金額
+    useEffect(() => {
+        const minVal = 0;
+        const clamped = Math.min(Math.max(amount, minVal), sliderMax);
+        setAmount(clamped);
+        setAmountInput(clamped > 0 ? formatAmount(clamped) : '');
+    }, [sliderMax, amount]);
+
+    const handleSliderChange = (value: number) => {
+        const minVal = 0;
+        const clamped = Math.min(Math.max(value, minVal), sliderMax);
+        setAmount(clamped);
+        setAmountInput(formatAmount(clamped));
+    };
+
+    const handleInputChange = (value: string) => {
+        setAmountInput(value);
+        if (value === '') return;
+        const num = parseFloat(value);
+        if (!Number.isNaN(num)) {
+            handleSliderChange(num);
+        }
+    };
+
+    const handleInputBlur = () => {
+        const minVal = 0;
+        const num = parseFloat(amountInput || '0');
+        const clamped = Math.min(Math.max(!Number.isNaN(num) ? num : minVal, minVal), sliderMax);
+        setAmount(clamped);
+        setAmountInput(clamped > 0 ? formatAmount(clamped) : '');
+    };
+
     // 借款處理
     const handleBorrow = async () => {
         if (!socket) {
@@ -84,6 +122,7 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
 
         const confirmed = await Dialog.confirm({
             content: `確定要借款 $${amount} 嗎？\n日利率: ${(dailyInterestRate * 100).toFixed(4)}%`,
+            closeOnMaskClick: false,
         });
 
         if (confirmed) {
@@ -103,8 +142,8 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
             return;
         }
 
-        if (amount > cash) {
-            Toast.show({ icon: 'fail', content: '現金不足' });
+        if (amount > repayMax) {
+            Toast.show({ icon: 'fail', content: '現金或負債不足' });
             return;
         }
 
@@ -116,6 +155,7 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
 
         const confirmed = await Dialog.confirm({
             content: confirmMessage,
+            closeOnMaskClick: false,
         });
 
         if (confirmed) {
@@ -127,7 +167,8 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
         <Popup
             visible={isOpen}
             onClose={onClose}
-            onMaskClick={onClose}
+            closeOnMaskClick={false}
+            onMaskClick={undefined}
             position='bottom'
             bodyStyle={{
                 minHeight: '70vh',
@@ -214,6 +255,31 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                         </div>
                     </div>
 
+                    {/* 模式切換：借 / 還 */}
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        margin: '12px 0'
+                    }}>
+                        <span style={{ fontSize: '14px', color: '#666' }}>模式:</span>
+                        <Switch
+                            checked={mode === 'BORROW'}
+                            onChange={(checked) => {
+                                const nextMode: 'BORROW' | 'REPAY' = checked ? 'BORROW' : 'REPAY';
+                                setMode(nextMode);
+                                const nextMax = nextMode === 'BORROW' ? Math.max(0, remainingLimit) : repayMax;
+                                const nextStep = 0.01;
+                                const resetVal = nextMax > 0 ? Math.min(Math.max(nextStep, 0), nextMax) : 0; // 切換時預設回最小刻度
+                                setAmount(resetVal);
+                                setAmountInput(resetVal > 0 ? formatAmount(resetVal) : '');
+                            }}
+                            checkedText="借"
+                            uncheckedText="還"
+                            style={{ '--checked-color': mode === 'BORROW' ? '#1677ff' : '#faad14' } as React.CSSProperties}
+                        />
+                    </div>
+
                     {/* ==================== 利率與額度資訊 ==================== */}
                     <div style={{
                         backgroundColor: '#fff',
@@ -242,7 +308,7 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                         </div>
                     </div>
 
-                    {/* ==================== 金額輸入 ==================== */}
+                    {/* ==================== 金額輸入（Slider + Input） ==================== */}
                     <div style={{
                         backgroundColor: '#fff',
                         padding: '16px',
@@ -256,91 +322,56 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                             alignItems: 'center',
                             marginBottom: '8px'
                         }}>
-                            <span style={{ fontSize: '14px', color: '#666' }}>金額 (元):</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <Button 
-                                    size="small"
-                                    onClick={() => setAmount(Math.max(0, amount - 100))}
-                                >
-                                    -
-                                </Button>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="100"
-                                    value={amount}
-                                    onChange={(e) => {
-                                        const val = parseInt(e.target.value) || 0;
-                                        setAmount(Math.max(0, val));
-                                    }}
-                                    style={{
-                                        fontSize: '16px',
-                                        fontWeight: 'bold',
-                                        width: '80px',
-                                        textAlign: 'center',
-                                        border: '1px solid #e5e5e5',
-                                        borderRadius: '4px',
-                                        padding: '4px 8px'
-                                    }}
-                                />
-                                <Button 
-                                    size="small"
-                                    onClick={() => setAmount(amount + 100)}
-                                >
-                                    +
-                                </Button>
-                                <Button 
-                                    size="small"
-                                    color="default"
-                                    onClick={() => setAmount(remainingLimit)}
-                                    disabled={remainingLimit <= 0}
-                                >
-                                    最大
-                                </Button>
-                            </div>
+                            <span style={{ fontSize: '14px', color: '#666' }}>金額 (元)</span>
+                            <span style={{ fontSize: '12px', color: '#999' }}>上限 {formatAmount(sliderMax)}</span>
                         </div>
-
-                        {/* 快捷金額按鈕 */}
-                        <div style={{ 
-                            display: 'flex', 
-                            gap: '8px', 
-                            justifyContent: 'center',
-                            marginTop: '12px'
-                        }}>
-                            {[100, 500, 1000].map(val => (
-                                <Button 
-                                    key={val}
-                                    size="small"
-                                    fill="outline"
-                                    onClick={() => setAmount(val)}
-                                >
-                                    ${val}
-                                </Button>
-                            ))}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ flex: 1 }}>
+                                <Slider
+                                    min={0}
+                                    max={sliderMax}
+                                    step={sliderStep}
+                                    ticks
+                                    disabled={sliderMax <= 0}
+                                    value={Math.min(amount, sliderMax)}
+                                    onChange={(val) => handleSliderChange(val as number)}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
+                                    <span>0</span>
+                                    <span>{Math.floor(sliderMax / 2)}</span>
+                                    <span>{sliderMax}</span>
+                                </div>
+                            </div>
+                            <input
+                                type="number"
+                                min={0}
+                                max={sliderMax}
+                                step={sliderStep}
+                                value={amountInput}
+                                onChange={(e) => handleInputChange(e.target.value)}
+                                onBlur={handleInputBlur}
+                                style={{
+                                    width: '60px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    textAlign: 'center',
+                                    border: '1px solid #e5e5e5',
+                                    borderRadius: '4px',
+                                    padding: '4px 8px'
+                                }}
+                            />
                         </div>
                     </div>
 
                     {/* ==================== 操作按鈕 ==================== */}
-                    <div style={{ 
-                        display: 'flex', 
-                        gap: '12px',
-                        marginTop: '12px'
-                    }}>
+                    <div style={{ marginTop: '12px' }}>
                         <Button 
                             block
-                            color="primary"
-                            onClick={handleBorrow}
-                            disabled={remainingLimit <= 0}
+                            color={mode === 'BORROW' ? 'primary' : 'warning'}
+                            onClick={mode === 'BORROW' ? handleBorrow : handleRepay}
+                            disabled={sliderMax <= 0}
                         >
-                            借款
-                        </Button>
-                        <Button 
-                            block
-                            color="warning"
-                            onClick={handleRepay}
-                            disabled={debt <= 0}
-                        >
-                            還款
+                            {mode === 'BORROW' ? '借款' : '還款'}
                         </Button>
                     </div>
 
@@ -356,7 +387,7 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                             color: debt > 0 ? '#ff3141' : '#52c41a',
                             fontSize: '14px'
                         }}>
-                            ${debt.toFixed(2)}
+                            ${formatAmount(debt)}
                         </span>
                     </div>
                 </div>

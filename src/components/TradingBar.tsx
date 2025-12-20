@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Toast, Dialog, Modal } from 'antd-mobile';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Button, Toast, Dialog, Modal, Switch, Slider } from 'antd-mobile';
 import { QuestionCircleOutline, CloseOutline } from 'antd-mobile-icons';
 import { Socket } from 'socket.io-client';
 import LoanSharkModal from './LoanSharkModal';
@@ -17,6 +17,7 @@ interface TradingBarProps {
     dailyBorrowed?: number;
     maxLoanAmount?: number;
     dailyInterestRate?: number;
+    stocks?: number; // 使用者持股數量，供賣出上限計算
 }
 
 const TradingBar: React.FC<TradingBarProps> = ({ 
@@ -30,10 +31,15 @@ const TradingBar: React.FC<TradingBarProps> = ({
     debt = 0,
     dailyBorrowed = 0,
     maxLoanAmount = 1000,
-    dailyInterestRate = 0.0001
+    dailyInterestRate = 0.0001,
+    stocks = 0
 }) => {
     const [tradeMode, setTradeMode] = useState<'spot' | 'contract'>('spot');
-    const [quantity, setQuantity] = useState<number>(1);
+    const [spotMode, setSpotMode] = useState<'BUY' | 'SELL'>('BUY');
+    const [spotQuantity, setSpotQuantity] = useState<number>(1);
+    const [spotQuantityInput, setSpotQuantityInput] = useState<string>('1');
+    const [contractQuantity, setContractQuantity] = useState<number>(1);
+    const [contractQuantityInput, setContractQuantityInput] = useState<string>('1');
     
     // 合約交易專用狀態
     const [contractDirection, setContractDirection] = useState<'LONG' | 'SHORT'>('LONG');
@@ -43,11 +49,6 @@ const TradingBar: React.FC<TradingBarProps> = ({
 
     // 【新增】地下錢莊浮動視窗狀態
     const [showLoanShark, setShowLoanShark] = useState(false);
-
-    // ==================== 監聽 tradeMode 切換，重置張數 ====================
-    useEffect(() => {
-        setQuantity(1); // 切換交易模式時重置為 1 張
-    }, [tradeMode]);
 
     // ==================== Hash 錨點管理函數 ====================
     
@@ -122,36 +123,8 @@ const TradingBar: React.FC<TradingBarProps> = ({
         };
     }, []);
 
-    // 處理買入
-    const handleBuy = () => {
-        if (!socket) {
-            Toast.show({ icon: 'fail', content: 'WebSocket 未連線' });
-            return;
-        }
-        if (!isGameStarted) {
-            Toast.show({ icon: 'fail', content: '遊戲尚未開始' });
-            return;
-        }
-        onTradingStart();
-        socket.emit('BUY_STOCK', { quantity });
-    };
-
-    // 處理賣出
-    const handleSell = () => {
-        if (!socket) {
-            Toast.show({ icon: 'fail', content: 'WebSocket 未連線' });
-            return;
-        }
-        if (!isGameStarted) {
-            Toast.show({ icon: 'fail', content: '遊戲尚未開始' });
-            return;
-        }
-        onTradingStart();
-        socket.emit('SELL_STOCK', { quantity });
-    };
-
     // ==================== 合約交易 ====================
-    const handlePlaceContract = () => {
+    const handlePlaceContract = async () => {
         if (!socket) {
             Toast.show({ icon: 'fail', content: 'WebSocket 未連線' });
             return;
@@ -160,12 +133,18 @@ const TradingBar: React.FC<TradingBarProps> = ({
             Toast.show({ icon: 'fail', content: '遊戲尚未開始' });
             return;
         }
+
+        const confirmed = await Dialog.confirm({
+            content: `方向：${contractDirection === 'LONG' ? '做多' : '做空'}，張數 ${contractQuantity}，槓桿 ${leverage}x，保證金約 $${estimatedMargin.toFixed(2)}，確定下單嗎？`,
+            closeOnMaskClick: false,
+        });
+        if (!confirmed) return;
 
         onTradingStart();
         socket.emit('BUY_CONTRACT', {
             type: contractDirection,
             leverage: parseFloat(customLeverage),
-            quantity,
+            quantity: contractQuantity,
         });
     };
 
@@ -182,6 +161,7 @@ const TradingBar: React.FC<TradingBarProps> = ({
         const confirmed = await Dialog.confirm({
             title: '確認撤銷',
             content: '確定要撤銷今日所有未結算的合約嗎？',
+            closeOnMaskClick: false,
         });
 
         if (confirmed) {
@@ -205,27 +185,128 @@ const TradingBar: React.FC<TradingBarProps> = ({
         }
     };
 
-    // 計算最大張數 - 現貨
-    const handleMaxSpot = () => {
-        if (currentPrice > 0) {
-            const maxQty = Math.floor(cash / currentPrice);
-            setQuantity(Math.max(1, maxQty));
+    // 現貨最大張數（依模式切換）
+    const spotMax = useMemo(() => {
+        if (spotMode === 'BUY') {
+            if (currentPrice <= 0) return 0;
+            return Math.max(0, Math.floor(cash / currentPrice));
+        }
+        return Math.max(0, stocks);
+    }, [spotMode, cash, currentPrice, stocks]);
+
+    // 合約最大張數（依保證金計算）
+    const contractMax = useMemo(() => {
+        const parsedLev = parseFloat(customLeverage || '1');
+        const safeLev = !isNaN(parsedLev) && parsedLev > 0 ? Math.min(parsedLev, maxLeverage) : 1;
+        const marginPerShare = safeLev > 0 ? currentPrice / safeLev : 0;
+        if (marginPerShare <= 0) return 0;
+        return Math.max(0, Math.floor(cash / marginPerShare));
+    }, [cash, currentPrice, customLeverage, maxLeverage]);
+
+    // Slider 變動同步輸入框
+    const handleSliderChange = (
+        value: number,
+        setter: (v: number) => void,
+        inputSetter: (v: string) => void,
+        max: number
+    ) => {
+        const minVal = 0; // Slider 按需求 0~Max
+        const clamped = Math.min(Math.max(value, minVal), max);
+        setter(clamped);
+        inputSetter(clamped.toString());
+    };
+
+    // 現貨模式切換（同步重算上下限與數值）
+    const handleSpotModeChange = (checked: boolean) => {
+        const nextMode: 'BUY' | 'SELL' = checked ? 'BUY' : 'SELL';
+        setSpotMode(nextMode);
+        const nextMax = nextMode === 'BUY'
+            ? (currentPrice > 0 ? Math.max(0, Math.floor(cash / currentPrice)) : 0)
+            : Math.max(0, stocks);
+        const minVal = nextMax > 0 ? 1 : 0;
+        const resetVal = Math.min(Math.max(1, minVal), nextMax); // 切換時預設回 1 張
+        setSpotQuantity(resetVal);
+        setSpotQuantityInput(resetVal > 0 ? resetVal.toString() : '');
+    };
+
+    // 現貨輸入欄位處理
+    const handleSpotInputChange = (value: string) => {
+        setSpotQuantityInput(value);
+        if (value === '') return;
+        const num = parseInt(value, 10);
+        if (!Number.isNaN(num)) {
+            handleSliderChange(num, setSpotQuantity, setSpotQuantityInput, spotMax);
         }
     };
 
-    // 計算最大張數 - 合約
-    const handleMaxContract = () => {
-        const currentLeverage = parseFloat(customLeverage || '1');
-        if (currentPrice > 0 && currentLeverage > 0) {
-            // 保證金 = (股價 × 張數) ÷ 槓桿
-            // 所以 最大張數 = (現金 × 槓桿) ÷ 股價
-            const maxQty = Math.floor((cash * currentLeverage) / currentPrice);
-            setQuantity(Math.max(1, maxQty));
+    const handleSpotInputBlur = () => {
+        const minVal = spotMax > 0 ? 1 : 0;
+        const num = parseInt(spotQuantityInput || '0', 10);
+        const clamped = Math.min(Math.max(num || minVal, minVal), spotMax);
+        setSpotQuantity(clamped);
+        setSpotQuantityInput(clamped > 0 ? clamped.toString() : '');
+    };
+
+    // 合約輸入欄位處理
+    const handleContractInputChange = (value: string) => {
+        setContractQuantityInput(value);
+        if (value === '') return;
+        const num = parseInt(value, 10);
+        if (!Number.isNaN(num)) {
+            handleSliderChange(num, setContractQuantity, setContractQuantityInput, contractMax);
         }
     };
 
-    // 計算保證金
-    const estimatedMargin = (currentPrice * quantity) / parseFloat(customLeverage || '1');
+    const handleContractInputBlur = () => {
+        const minVal = contractMax > 0 ? 1 : 0;
+        const num = parseInt(contractQuantityInput || '0', 10);
+        const clamped = Math.min(Math.max(num || minVal, minVal), contractMax);
+        setContractQuantity(clamped);
+        setContractQuantityInput(clamped > 0 ? clamped.toString() : '');
+    };
+
+    // 依上限修正現貨/合約張數
+    useEffect(() => {
+        const minVal = spotMax > 0 ? 1 : 0;
+        const clamped = Math.min(Math.max(spotQuantity, minVal), spotMax);
+        setSpotQuantity(clamped);
+        setSpotQuantityInput(clamped > 0 ? clamped.toString() : '');
+    }, [spotMax]);
+
+    useEffect(() => {
+        const minVal = contractMax > 0 ? 1 : 0;
+        const clamped = Math.min(Math.max(contractQuantity, minVal), contractMax);
+        setContractQuantity(clamped);
+        setContractQuantityInput(clamped > 0 ? clamped.toString() : '');
+    }, [contractMax]);
+
+    // 預估數值
+    const spotEstimatedTotal = currentPrice * spotQuantity;
+    const estimatedMargin = (currentPrice * contractQuantity) / parseFloat(customLeverage || '1');
+
+    // 現貨下單確認
+    const handleConfirmSpot = async () => {
+        if (!socket) {
+            Toast.show({ icon: 'fail', content: 'WebSocket 未連線' });
+            return;
+        }
+        if (!isGameStarted) {
+            Toast.show({ icon: 'fail', content: '遊戲尚未開始' });
+            return;
+        }
+        const actionText = spotMode === 'BUY' ? '買入' : '賣出';
+        const confirmed = await Dialog.confirm({
+            content: `${actionText} ${spotQuantity} 張，${spotMode === 'BUY' ? '預估支出' : '預估收入'} $${spotEstimatedTotal.toFixed(2)}，確定嗎？`,
+            closeOnMaskClick: false,
+        });
+        if (!confirmed) return;
+        onTradingStart();
+        if (spotMode === 'BUY') {
+            socket.emit('BUY_STOCK', { quantity: spotQuantity });
+        } else {
+            socket.emit('SELL_STOCK', { quantity: spotQuantity });
+        }
+    };
 
     return (
         <div style={{
@@ -317,59 +398,64 @@ const TradingBar: React.FC<TradingBarProps> = ({
             {/* 現貨交易 UI */}
             {tradeMode === 'spot' && (
                 <>
-                    {/* 張數控制 */}
+                    {/* 買 / 賣切換 */}
                     <div style={{ 
                         display: 'flex', 
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        marginBottom: '8px'
+                        marginBottom: '12px'
                     }}>
-                        <span style={{ fontSize: '14px', color: '#666' }}>張數:</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Button 
-                                size="small"
-                                color="default"
-                                onClick={() => setQuantity(1)}
-                            >
-                                最小
-                            </Button>
-                            <Button 
-                                size="small"
-                                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                            >
-                                -
-                            </Button>
+                        <span style={{ fontSize: '14px', color: '#666' }}>模式:</span>
+                        <Switch
+                            checked={spotMode === 'BUY'}
+                            onChange={handleSpotModeChange}
+                            checkedText="買"
+                            uncheckedText="賣"
+                            style={{ '--checked-color': spotMode === 'BUY' ? '#00b578' : '#ff3141' } as React.CSSProperties}
+                        />
+                    </div>
+
+                    {/* 張數控制 */}
+                    <div style={{ marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <span style={{ fontSize: '14px', color: '#666' }}>張數</span>
+                            <span style={{ fontSize: '12px', color: '#999' }}>上限 {spotMax}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ flex: 1 }}>
+                                <Slider
+                                    min={0}
+                                    max={spotMax}
+                                    step={1}
+                                    ticks
+                                    disabled={spotMax <= 0}
+                                    value={Math.min(spotQuantity, spotMax)}
+                                    onChange={(val) => handleSliderChange(val as number, setSpotQuantity, setSpotQuantityInput, spotMax)}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
+                                    <span>0</span>
+                                    <span>{Math.floor(spotMax / 2)}</span>
+                                    <span>{spotMax}</span>
+                                </div>
+                            </div>
                             <input
                                 type="number"
-                                min="1"
-                                value={quantity}
-                                onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 1;
-                                    setQuantity(Math.max(1, val));
-                                }}
+                                min={0}
+                                max={spotMax}
+                                step={1}
+                                value={spotQuantityInput}
+                                onChange={(e) => handleSpotInputChange(e.target.value)}
+                                onBlur={handleSpotInputBlur}
                                 style={{
+                                    width: '60px',
                                     fontSize: '16px',
                                     fontWeight: 'bold',
-                                    width: '50px',
                                     textAlign: 'center',
                                     border: '1px solid #e5e5e5',
                                     borderRadius: '4px',
                                     padding: '4px 8px'
                                 }}
                             />
-                            <Button 
-                                size="small"
-                                onClick={() => setQuantity(quantity + 1)}
-                            >
-                                +
-                            </Button>
-                            <Button 
-                                size="small"
-                                color="default"
-                                onClick={handleMaxSpot}
-                            >
-                                最大
-                            </Button>
                         </div>
                     </div>
 
@@ -381,31 +467,21 @@ const TradingBar: React.FC<TradingBarProps> = ({
                         marginBottom: '12px'
                     }}>
                         預估金額: <span style={{ fontWeight: 'bold', color: '#1677ff' }}>
-                            ${(currentPrice * quantity).toFixed(2)}
+                            ${spotEstimatedTotal.toFixed(2)}
                         </span>
                     </div>
 
-                    {/* 買入 / 賣出按鈕 */}
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    {/* 單一操作按鈕 */}
+                    <div>
                         <Button 
-                            color="success" 
+                            color={spotMode === 'BUY' ? 'success' : 'danger'}
                             size="large"
-                            style={{ flex: 1 }}
-                            disabled={isTrading}
+                            block
+                            disabled={isTrading || spotMax <= 0}
                             loading={isTrading}
-                            onClick={handleBuy}
+                            onClick={handleConfirmSpot}
                         >
-                            買入
-                        </Button>
-                        <Button 
-                            color="danger" 
-                            size="large"
-                            style={{ flex: 1 }}
-                            disabled={isTrading}
-                            loading={isTrading}
-                            onClick={handleSell}
-                        >
-                            賣出
+                            {spotMode === 'BUY' ? '買入' : '賣出'}
                         </Button>
                     </div>
                 </>
@@ -499,58 +575,46 @@ const TradingBar: React.FC<TradingBarProps> = ({
                     </div>
 
                     {/* 張數控制 */}
-                    <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '8px'
-                    }}>
-                        <span style={{ fontSize: '14px', color: '#666' }}>張數:</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Button 
-                                size="small"
-                                color="default"
-                                onClick={() => setQuantity(1)}
-                            >
-                                最小
-                            </Button>
-                            <Button 
-                                size="small"
-                                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                            >
-                                -
-                            </Button>
+                    <div style={{ marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                            <span style={{ fontSize: '14px', color: '#666' }}>張數</span>
+                            <span style={{ fontSize: '12px', color: '#999' }}>上限 {contractMax}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ flex: 1 }}>
+                                <Slider
+                                    min={0}
+                                    max={contractMax}
+                                    step={1}
+                                    ticks
+                                    disabled={contractMax <= 0}
+                                    value={Math.min(contractQuantity, contractMax)}
+                                    onChange={(val) => handleSliderChange(val as number, setContractQuantity, setContractQuantityInput, contractMax)}
+                                />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
+                                    <span>0</span>
+                                    <span>{Math.floor(contractMax / 2)}</span>
+                                    <span>{contractMax}</span>
+                                </div>
+                            </div>
                             <input
                                 type="number"
-                                min="1"
-                                value={quantity}
-                                onChange={(e) => {
-                                    const val = parseInt(e.target.value) || 1;
-                                    setQuantity(Math.max(1, val));
-                                }}
+                                min={0}
+                                max={contractMax}
+                                step={1}
+                                value={contractQuantityInput}
+                                onChange={(e) => handleContractInputChange(e.target.value)}
+                                onBlur={handleContractInputBlur}
                                 style={{
+                                    width: '60px',
                                     fontSize: '16px',
                                     fontWeight: 'bold',
-                                    width: '50px',
                                     textAlign: 'center',
                                     border: '1px solid #e5e5e5',
                                     borderRadius: '4px',
                                     padding: '4px 8px'
                                 }}
                             />
-                            <Button 
-                                size="small"
-                                onClick={() => setQuantity(quantity + 1)}
-                            >
-                                +
-                            </Button>
-                            <Button 
-                                size="small"
-                                color="default"
-                                onClick={handleMaxContract}
-                            >
-                                最大
-                            </Button>
                         </div>
                     </div>
 
@@ -572,7 +636,7 @@ const TradingBar: React.FC<TradingBarProps> = ({
                             color="primary"
                             size="large"
                             style={{ flex: 1 }}
-                            disabled={isTrading}
+                            disabled={isTrading || contractMax <= 0}
                             loading={isTrading}
                             onClick={handlePlaceContract}
                         >
