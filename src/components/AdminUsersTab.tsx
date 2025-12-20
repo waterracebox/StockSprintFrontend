@@ -91,13 +91,15 @@ const AdminUsersTab: React.FC = () => {
             </div>
 
             {/* 搜尋框 */}
-            <Input
-                placeholder='搜尋 username 或 displayName'
-                value={search}
-                onChange={setSearch}
-                prefix={<SearchOutline />}
-                style={{ marginBottom: '16px' }}
-            />
+            <div style={{ position: 'relative', marginBottom: '16px' }}>
+                <SearchOutline style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999', zIndex: 1 }} />
+                <Input
+                    placeholder='搜尋 username 或 displayName'
+                    value={search}
+                    onChange={setSearch}
+                    style={{ paddingLeft: '36px' }}
+                />
+            </div>
 
             {/* 表格容器（水平滾動） */}
             <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
