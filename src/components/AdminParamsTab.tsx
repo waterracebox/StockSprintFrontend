@@ -60,7 +60,7 @@ const AdminParamsTab: React.FC = () => {
             initialCash: 50,
             maxLeverage: 10,
             dailyInterestRate: 0.0001,
-            maxLoanAmount: 10000,
+            maxLoanAmount: 100,
         });
     };
 

@@ -9,6 +9,7 @@ import AdminParamsTab from '../components/AdminParamsTab';
 import AdminUsersTab from '../components/AdminUsersTab';
 import AdminUserModals from '../components/AdminUserModals';
 import MonitorModal from '../components/MonitorModal';
+import AdminScriptTab from '../components/admin/AdminScriptTab';
 
 const AdminPage: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -81,7 +82,7 @@ const AdminPage: React.FC = () => {
             {/* 頂部導覽列 */}
             <NavBar
                 onBack={() => navigate('/home')}
-                style={{ backgroundColor: '#1677ff', color: '#fff' }}
+                style={{ backgroundColor: '#1677ff', color: '#fff', position: 'sticky', top: 0, zIndex: 1000 }}
                 right={
                     <div 
                         style={{ 
@@ -117,9 +118,7 @@ const AdminPage: React.FC = () => {
                     <AdminUsersTab />
                 </Tabs.Tab>
                 <Tabs.Tab title='遊戲劇本' key='script'>
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
-                        敬請期待
-                    </div>
+                    <AdminScriptTab />
                 </Tabs.Tab>
             </Tabs>
 
