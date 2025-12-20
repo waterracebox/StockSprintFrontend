@@ -876,16 +876,22 @@ const HomePage: React.FC = () => {
                                 justifyContent: newsHistory.length > 0 ? 'flex-start' : 'center',
                                 fontSize: '11px',
                                 color: '#999',
-                                lineHeight: '1.8',
-                                overflow: 'hidden'
+                                lineHeight: '1.6',
+                                overflowY: 'auto'
                             }}>
                                 {newsHistory.length > 0 ? (
                                     newsHistory.slice(0, 5).map((news, index) => (
-                                        <div key={index} style={{
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap'
-                                        }}>
+                                        <div
+                                            key={index}
+                                            style={{
+                                                overflow: 'hidden',
+                                                wordBreak: 'break-word',
+                                                whiteSpace: 'normal',
+                                                width: '100%',
+                                                lineHeight: '1.6',
+                                                marginBottom: '4px'
+                                            }}
+                                        >
                                             • {news.title}
                                         </div>
                                     ))
