@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Tabs, Button, TextArea, Form, Input, Toast, Dialog, Collapse, List, Space, Popup } from 'antd-mobile';
+import { Tabs, Button, TextArea, Form, Input, Toast, Dialog, Collapse, List, Space, Popup, Switch } from 'antd-mobile';
 import StockChart from '../StockChart';
 import apiClient from '../../services/apiClient';
 
@@ -19,6 +19,8 @@ interface ScriptDayItem {
   title?: string | null;
   news?: string | null;
   effectiveTrend: string;
+  publishTimeOffset?: number | null;
+  isNewsBroadcasted?: boolean;
 }
 
 // 模擬結果型別
@@ -105,7 +107,7 @@ const AdminScriptTab: React.FC = () => {
 
   const [eventForm] = Form.useForm<EventItem>();
   const [generateForm] = Form.useForm();
-  const [editDayForm] = Form.useForm<{ price: number; title?: string; news?: string }>();
+  const [editDayForm] = Form.useForm<{ price: number; title?: string; news?: string; publishTimeOffset?: number | null; isNewsBroadcasted?: boolean }>();
 
   const loadEvents = async () => {
     const res = await apiClient.get('/admin/events');
@@ -214,6 +216,8 @@ const AdminScriptTab: React.FC = () => {
       price: dayItem.price,
       title: dayItem.title || '',
       news: dayItem.news || '',
+      publishTimeOffset: dayItem.publishTimeOffset ?? null,
+      isNewsBroadcasted: dayItem.isNewsBroadcasted ?? false,
     });
   };
 
@@ -222,10 +226,17 @@ const AdminScriptTab: React.FC = () => {
     try {
       setLoading(true);
       const values = editDayForm.getFieldsValue();
+      const offsetRaw = values.publishTimeOffset;
+      const publishTimeOffset =
+        offsetRaw === null || offsetRaw === undefined || (typeof offsetRaw === 'string' && offsetRaw === '')
+          ? null
+          : Number(offsetRaw);
       await apiClient.put(`/admin/script/day/${editDayData.day}`, {
         price: Number(values.price),
         title: values.title,
         news: values.news,
+        publishTimeOffset,
+        isNewsBroadcasted: values.isNewsBroadcasted,
       });
       Toast.show({ icon: 'success', content: `第 ${editDayData.day} 天已更新` });
       setEditPopupOpen(false);
@@ -426,6 +437,16 @@ const AdminScriptTab: React.FC = () => {
           <Form.Item name='news' label='內文'>
             <Input placeholder='可選填' />
           </Form.Item>
+          <Collapse defaultActiveKey={[]}>
+            <Collapse.Panel key='advanced' title='進階設定'>
+              <Form.Item name='publishTimeOffset' label='發佈秒數偏移'>
+                <Input type='number' placeholder='留空採預設時間' />
+              </Form.Item>
+              <Form.Item name='isNewsBroadcasted' label='已廣播' valuePropName='checked'>
+                <Switch />
+              </Form.Item>
+            </Collapse.Panel>
+          </Collapse>
         </Form>
       </Popup>
 

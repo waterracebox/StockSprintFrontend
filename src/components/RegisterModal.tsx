@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CenterPopup, Form, Input, Button } from 'antd-mobile';
+import { CenterPopup, Form, Input, Button, Checkbox } from 'antd-mobile';
 import { CloseOutline } from 'antd-mobile-icons';
 import { message } from 'antd';
 import { authAPI } from '../services/auth';
@@ -52,6 +52,11 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isAdmin }) => {
     const handleSubmit = async () => {
         try {
             const values = await form.validateFields();
+
+            if (values.password !== values.confirmPassword) {
+                messageApi.error('密碼與確認密碼不一致');
+                return;
+            }
             setLoading(true);
 
             if (isAdmin) {
@@ -61,6 +66,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isAdmin }) => {
                     password: values.password,
                     displayName: values.displayName?.trim(),
                     adminSecret: values.adminSecret,
+                    isEmployee: !!values.isEmployee,
                 };
                 await authAPI.registerAdmin(data);
             } else {
@@ -69,6 +75,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isAdmin }) => {
                     username: values.username?.trim(),
                     password: values.password,
                     displayName: values.displayName?.trim(),
+                    isEmployee: !!values.isEmployee,
                 };
                 await authAPI.register(data);
             }
@@ -164,6 +171,18 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isAdmin }) => {
                             help="至少8碼，需包含大小寫英文及數字"
                         >
                             <Input type="password" placeholder="至少8碼，需包含大小寫英文及數字" autoComplete="new-password" />
+                        </Form.Item>
+
+                        <Form.Item
+                            name="confirmPassword"
+                            label="確認密碼"
+                            rules={[{ required: true, message: '請再次輸入密碼' }]}
+                        >
+                            <Input type="password" placeholder="請再次輸入密碼" autoComplete="new-password" />
+                        </Form.Item>
+
+                        <Form.Item name="isEmployee" valuePropName="checked">
+                            <Checkbox>我是員工</Checkbox>
                         </Form.Item>
 
                         {/* 管理員專屬欄位 */}

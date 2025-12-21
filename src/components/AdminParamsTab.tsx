@@ -1,16 +1,71 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Form, Input, Button, Toast } from 'antd-mobile';
 import apiClient from '../services/apiClient';
 
 const AdminParamsTab: React.FC = () => {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
+    const [lastSavedParams, setLastSavedParams] = useState<Record<string, number>>({});
+    const [dirtyFlags, setDirtyFlags] = useState<Record<string, boolean>>({});
+
+    const fieldsOrder = useMemo(
+        () => [
+            'totalDays',
+            'timeRatio',
+            'initialPrice',
+            'initialCash',
+            'maxLeverage',
+            'dailyInterestRate',
+            'maxLoanAmount',
+        ],
+        []
+    );
+
+    const renderLabel = (name: string, labelText: string) => (
+        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', paddingLeft: 4 }}>
+            {dirtyFlags[name] ? (
+                <span
+                    style={{
+                        position: 'absolute',
+                        left: -10,
+                        top: -6,
+                        background: '#ff4d4f',
+                        color: '#fff',
+                        borderRadius: 12,
+                        padding: '2px 8px',
+                        fontSize: 12,
+                        lineHeight: 1.2,
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                    }}
+                >
+                    未儲存
+                </span>
+            ) : null}
+            <span>{labelText}</span>
+        </div>
+    );
+
+    const updateDirtyFlags = (values: Record<string, any>, baseline?: Record<string, any>) => {
+        const base = baseline || lastSavedParams;
+        const nextFlags: Record<string, boolean> = {};
+        fieldsOrder.forEach((key) => {
+            const saved = base[key];
+            const current = values[key];
+            // 以數值比較，避免字串/數字類型差異
+            const savedNumber = saved === undefined ? undefined : Number(saved);
+            const currentNumber = current === undefined || current === '' ? undefined : Number(current);
+            nextFlags[key] = savedNumber !== currentNumber;
+        });
+        setDirtyFlags(nextFlags);
+    };
 
     // 載入參數
     const loadParams = async () => {
         try {
             const response = await apiClient.get('/admin/params');
             form.setFieldsValue(response.data);
+            setLastSavedParams(response.data);
+            updateDirtyFlags(response.data, response.data);
         } catch (error) {
             console.error('[Admin] 載入參數失敗:', error);
             Toast.show({ icon: 'fail', content: '載入參數失敗' });
@@ -40,9 +95,10 @@ const AdminParamsTab: React.FC = () => {
             setLoading(true);
             await apiClient.put('/admin/params', params);
             Toast.show({ icon: 'success', content: '參數已儲存' });
-            
-            // 重新載入以確認
-            await loadParams();
+
+            // 記錄最新儲存狀態並清除未儲存標記
+            setLastSavedParams(params);
+            updateDirtyFlags(params, params);
         } catch (error: any) {
             console.error('[Admin] 儲存失敗:', error);
             Toast.show({ icon: 'fail', content: error.response?.data?.error || '儲存失敗' });
@@ -53,15 +109,22 @@ const AdminParamsTab: React.FC = () => {
 
     // 恢復預設值
     const handleReset = () => {
-        form.setFieldsValue({
+        const defaults = {
             timeRatio: 60,
             totalDays: 120,
-            initialPrice: 50,
+            initialPrice: 30,
             initialCash: 50,
             maxLeverage: 10,
             dailyInterestRate: 0.0001,
             maxLoanAmount: 100,
-        });
+        };
+        form.setFieldsValue(defaults);
+        updateDirtyFlags({ ...form.getFieldsValue(), ...defaults });
+    };
+
+    const handleValuesChange = () => {
+        const allValues = form.getFieldsValue();
+        updateDirtyFlags(allValues);
     };
 
     return (
@@ -74,10 +137,11 @@ const AdminParamsTab: React.FC = () => {
                 form={form} 
                 layout='horizontal'
                 style={{ '--border-bottom': 'none' }}
+                onValuesChange={handleValuesChange}
             >
                 <Form.Item 
                     name='totalDays' 
-                    label='遊戲總天數'
+                    label={renderLabel('totalDays', '遊戲總天數')}
                     rules={[{ required: true, message: '請輸入遊戲總天數' }]}
                 >
                     <Input type='number' placeholder='120' />
@@ -85,7 +149,7 @@ const AdminParamsTab: React.FC = () => {
 
                 <Form.Item 
                     name='timeRatio' 
-                    label='遊戲/現實比例'
+                    label={renderLabel('timeRatio', '遊戲/現實比例')}
                     extra='秒/遊戲天'
                     rules={[{ required: true, message: '請輸入時間比例' }]}
                 >
@@ -94,7 +158,7 @@ const AdminParamsTab: React.FC = () => {
 
                 <Form.Item 
                     name='initialCash' 
-                    label='初始新台幣'
+                    label={renderLabel('initialCash', '初始新台幣')}
                     extra='元'
                     rules={[{ required: true, message: '請輸入初始現金' }]}
                 >
@@ -103,7 +167,7 @@ const AdminParamsTab: React.FC = () => {
 
                 <Form.Item 
                     name='initialPrice' 
-                    label='股票初始價格'
+                    label={renderLabel('initialPrice', '股票初始價格')}
                     extra='元'
                     rules={[{ required: true, message: '請輸入初始價格' }]}
                 >
@@ -112,7 +176,7 @@ const AdminParamsTab: React.FC = () => {
 
                 <Form.Item 
                     name='maxLeverage' 
-                    label='槓桿最高倍數'
+                    label={renderLabel('maxLeverage', '槓桿最高倍數')}
                     rules={[{ required: true, message: '請輸入最高槓桿' }]}
                 >
                     <Input type='number' placeholder='10' />
@@ -120,7 +184,7 @@ const AdminParamsTab: React.FC = () => {
 
                 <Form.Item 
                     name='dailyInterestRate' 
-                    label='地下錢莊日利率'
+                    label={renderLabel('dailyInterestRate', '地下錢莊日利率')}
                     rules={[{ required: true, message: '請輸入日利率' }]}
                 >
                     <Input type='number' placeholder='0.0001' step='0.0001' />
@@ -128,7 +192,7 @@ const AdminParamsTab: React.FC = () => {
 
                 <Form.Item 
                     name='maxLoanAmount' 
-                    label='最高借款金額'
+                    label={renderLabel('maxLoanAmount', '最高借款金額')}
                     extra='元'
                     rules={[{ required: true, message: '請輸入最高借款金額' }]}
                 >

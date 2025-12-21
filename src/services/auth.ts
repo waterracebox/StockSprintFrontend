@@ -11,6 +11,7 @@ export interface RegisterData {
     username: string;
     password: string;
     displayName?: string;
+    isEmployee?: boolean;
 }
 
 export interface RegisterAdminData extends RegisterData {
@@ -30,6 +31,7 @@ export interface User {
     stocks: number;
     debt: number; // 負債金額
     role: 'USER' | 'ADMIN';
+    isEmployee: boolean;
     firstSignIn: boolean; // 是否為首次登入
     createdAt: string; // ISO 8601 日期字串
     updatedAt: string; // ISO 8601 日期字串
@@ -60,6 +62,7 @@ export interface RegisterResponse {
         displayName: string;
         cash: number;
         stocks: number;
+        isEmployee: boolean;
         role: 'USER' | 'ADMIN';
         createdAt: string;
     };
@@ -112,6 +115,14 @@ export const authAPI = {
      */
     updateAvatar: async (avatar: string): Promise<{ message: string; user: User }> => {
         const response = await apiClient.patch('/auth/avatar', { avatar });
+        return response.data;
+    },
+
+    /**
+     * 更新帳號設定（目前僅 isEmployee）
+     */
+    updateAccount: async (payload: { isEmployee: boolean }): Promise<{ message: string; user: User }> => {
+        const response = await apiClient.patch('/auth/account', payload);
         return response.data;
     },
 };

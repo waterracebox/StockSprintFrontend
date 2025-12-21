@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Toast, Avatar, Dialog, Popup, Grid, Modal } from 'antd-mobile';
+import { Button, Toast, Avatar, Dialog, Popup, Grid, Modal, Checkbox, Space } from 'antd-mobile';
 import { RightOutline, CloseOutline } from 'antd-mobile-icons';
 import { io, Socket } from 'socket.io-client';
 import { authAPI } from '../services/auth';
@@ -52,7 +52,9 @@ const HomePage: React.FC = () => {
     // 使用者選單與頭像選擇狀態
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showAvatarSelector, setShowAvatarSelector] = useState(false);
+    const [showAccountSettings, setShowAccountSettings] = useState(false);
     const [selectedAvatar, setSelectedAvatar] = useState<string>('');
+    const [accountIsEmployee, setAccountIsEmployee] = useState(false);
     
     // Modal 狀態
     const [showFullChartModal, setShowFullChartModal] = useState(false);
@@ -101,6 +103,12 @@ const HomePage: React.FC = () => {
                 setShowAvatarSelector(false);
             }
 
+            if (hash === '#account-settings') {
+                setShowAccountSettings(true);
+            } else {
+                setShowAccountSettings(false);
+            }
+
             if (hash === '#chart') {
                 setShowFullChartModal(true);
             } else {
@@ -114,6 +122,7 @@ const HomePage: React.FC = () => {
                 setShowUserMenu(false);
                 setShowAvatarSelector(false);
                 setShowFullChartModal(false);
+                setShowAccountSettings(false);
             }
         };
 
@@ -543,6 +552,22 @@ const HomePage: React.FC = () => {
             Toast.show({ 
                 icon: 'fail', 
                 content: error.response?.data?.error || '頭像更新失敗' 
+            });
+        }
+    };
+
+    const handleAccountUpdate = async () => {
+        try {
+            const response = await authAPI.updateAccount({ isEmployee: accountIsEmployee });
+            setUser(response.user);
+            Toast.show({ icon: 'success', content: '帳號設定已更新' });
+            closeModalWithHash(setShowAccountSettings);
+            closeModalWithHash(setShowUserMenu);
+        } catch (error: any) {
+            console.error('[Account] 更新失敗:', error);
+            Toast.show({ 
+                icon: 'fail', 
+                content: error.response?.data?.error || '更新帳號設定失敗' 
             });
         }
     };
@@ -1024,6 +1049,29 @@ const HomePage: React.FC = () => {
                                 justifyContent: 'space-between',
                                 cursor: 'pointer',
                                 borderRadius: '8px',
+                                transition: 'background-color 0.2s',
+                                marginBottom: 8
+                            }}
+                            onClick={() => {
+                                setAccountIsEmployee(!!user?.isEmployee);
+                                openModalWithHash('#account-settings', setShowAccountSettings);
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                            <span style={{ fontSize: '15px' }}>帳號設定</span>
+                            <RightOutline fontSize={16} color='#999' />
+                        </div>
+
+                        {/* 更改頭像 */}
+                        <div 
+                            style={{
+                                padding: '16px 12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                cursor: 'pointer',
+                                borderRadius: '8px',
                                 transition: 'background-color 0.2s'
                             }}
                             onClick={() => {
@@ -1176,6 +1224,56 @@ const HomePage: React.FC = () => {
                     </div>
                 }
             />
+
+            {/* ==================== 帳號設定 Popup ==================== */}
+            <Popup
+                visible={showAccountSettings}
+                onMaskClick={undefined}
+                position='right'
+                bodyStyle={{
+                    width: '320px',
+                    height: '100vh',
+                    padding: '0',
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}
+            >
+                <div style={{
+                    padding: '16px 20px',
+                    borderBottom: '1px solid #f0f0f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexShrink: 0
+                }}>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold' }}>帳號設定</div>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <Button size='small' color='primary' onClick={handleAccountUpdate}>
+                            儲存
+                        </Button>
+                        <CloseOutline 
+                            fontSize={24} 
+                            style={{ cursor: 'pointer', color: '#999' }}
+                            onClick={() => closeModalWithHash(setShowAccountSettings)}
+                        />
+                    </div>
+                </div>
+
+                <div style={{ padding: '20px', flex: 1 }}>
+                    <Space direction='vertical' style={{ width: '100%' }}>
+                        <Checkbox
+                            checked={accountIsEmployee}
+                            onChange={(val) => setAccountIsEmployee(val)}
+                        >
+                            我是員工
+                        </Checkbox>
+
+                        <div style={{ fontSize: 12, color: '#999' }}>
+                            變更為員工身份後，系統將在下次同步時顯示最新標記。
+                        </div>
+                    </Space>
+                </div>
+            </Popup>
 
             {/* ==================== 頭像選擇器 Popup ==================== */}
             <Popup
