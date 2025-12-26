@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, Card, Dialog, Space, Tag, Toast, Tabs } from 'antd-mobile';
+import { Button, Card, Checkbox, Dialog, Form, Input, List, Popup, Radio, Space, Tag, Toast, Tabs } from 'antd-mobile';
 import { io, Socket } from 'socket.io-client';
+import { redEnvelopeService, type RedEnvelopeItem } from '../../services/redEnvelopeService';
 
 interface MiniGameSyncPayload {
     gameType: 'NONE' | 'RED_ENVELOPE' | 'QUIZ' | 'MINORITY';
@@ -19,6 +20,21 @@ const AdminMiniGameTab: React.FC = () => {
         endTime: 0,
         data: {},
     });
+    const [allowGuest, setAllowGuest] = useState<boolean>(false);
+    const [items, setItems] = useState<RedEnvelopeItem[]>([]);
+    const [itemModalOpen, setItemModalOpen] = useState<boolean>(false);
+    const [editingItem, setEditingItem] = useState<RedEnvelopeItem | null>(null);
+    const [itemForm] = Form.useForm<Partial<RedEnvelopeItem>>();
+
+    const loadItems = async () => {
+        try {
+            const data = await redEnvelopeService.getItems();
+            setItems(data);
+        } catch (error: any) {
+            console.error('[MiniGame][Admin] 讀取紅包獎項失敗:', error);
+            Toast.show({ icon: 'fail', content: error?.response?.data?.error || '讀取紅包獎項失敗' });
+        }
+    };
 
     // 建立專用 Socket，避免干擾其他頁面連線
     useEffect(() => {
@@ -49,11 +65,16 @@ const AdminMiniGameTab: React.FC = () => {
         s.on('MINIGAME_SYNC', (payload: MiniGameSyncPayload) => {
             console.log('[MiniGame][Admin] 收到同步', payload);
             setStatus(payload);
+            if (payload.gameType === 'RED_ENVELOPE' && typeof payload.data?.allowGuest === 'boolean') {
+                setAllowGuest(Boolean(payload.data.allowGuest));
+            }
         });
 
         s.on('disconnect', (reason) => {
             console.log('[MiniGame][Admin] Socket 已斷線', reason);
         });
+
+        loadItems();
 
         return () => {
             s.disconnect();
@@ -77,9 +98,63 @@ const AdminMiniGameTab: React.FC = () => {
             return;
         }
 
-        socketRef.current.emit('ADMIN_MINIGAME_ACTION', { type: 'INIT_GAME' });
+        socketRef.current.emit('ADMIN_MINIGAME_ACTION', { type: 'INIT_GAME', allowGuest });
         Toast.show({ icon: 'success', content: '已送出初始化指令' });
     };
+
+    const handleOpenCreate = () => {
+        setEditingItem(null);
+        itemForm.resetFields();
+        itemForm.setFieldsValue({ type: 'PHYSICAL', prizeValue: 0, amount: 1, displayOrder: items.length });
+        setItemModalOpen(true);
+    };
+
+    const handleOpenEdit = (item: RedEnvelopeItem) => {
+        setEditingItem(item);
+        itemForm.setFieldsValue(item);
+        setItemModalOpen(true);
+    };
+
+    const handleDelete = async (id: number) => {
+        const confirmed = await Dialog.confirm({ content: '確認刪除此獎項嗎？', closeOnMaskClick: false });
+        if (!confirmed) return;
+
+        try {
+            await redEnvelopeService.deleteItem(id);
+            Toast.show({ icon: 'success', content: '已刪除' });
+            loadItems();
+        } catch (error: any) {
+            console.error('[MiniGame][Admin] 刪除獎項失敗:', error);
+            Toast.show({ icon: 'fail', content: error?.response?.data?.error || '刪除獎項失敗' });
+        }
+    };
+
+    const handleSubmitItem = async (values: any) => {
+        try {
+            if (values.type === 'CASH' && values.prizeValue === undefined) {
+                Toast.show({ icon: 'fail', content: '現金獎項需填寫現金額度' });
+                return;
+            }
+
+            if (editingItem) {
+                await redEnvelopeService.updateItem(editingItem.id, values);
+                Toast.show({ icon: 'success', content: '已更新獎項' });
+            } else {
+                await redEnvelopeService.createItem(values);
+                Toast.show({ icon: 'success', content: '已新增獎項' });
+            }
+
+            setItemModalOpen(false);
+            loadItems();
+        } catch (error: any) {
+            console.error('[MiniGame][Admin] 儲存獎項失敗:', error);
+            Toast.show({ icon: 'fail', content: error?.response?.data?.error || '儲存獎項失敗' });
+        }
+    };
+
+    const isCash = itemForm.getFieldValue('type') === 'CASH';
+
+    const isRedEnvelope = status.gameType === 'RED_ENVELOPE';
 
     return (
         <div style={{ padding: 16 }}>
@@ -112,10 +187,45 @@ const AdminMiniGameTab: React.FC = () => {
             <Tabs>
                 <Tabs.Tab title='紅包' key='red-envelope'>
                     <Space direction='vertical' block>
-                        <Button color='primary' onClick={handleInitGame}>
+                        <Checkbox checked={allowGuest} disabled={isRedEnvelope} onChange={(val) => setAllowGuest(val)}>
+                            允許非員工參與 (Allow Guest)
+                        </Checkbox>
+
+                        <Card
+                            title='獎項列表'
+                            extra={
+                                <Button size='mini' color='primary' onClick={handleOpenCreate}>
+                                    新增獎項
+                                </Button>
+                            }
+                        >
+                            <List>
+                                {items.map((it) => (
+                                    <List.Item
+                                        key={it.id}
+                                        description={`數量: ${it.amount} | 類型: ${it.type}${it.type === 'CASH' ? ` | 現金: ${it.prizeValue}` : ''}`}
+                                        extra={
+                                            <Space>
+                                                <Button size='mini' color='primary' fill='outline' onClick={() => handleOpenEdit(it)}>
+                                                    編輯
+                                                </Button>
+                                                <Button size='mini' color='danger' fill='outline' onClick={() => handleDelete(it.id)}>
+                                                    刪除
+                                                </Button>
+                                            </Space>
+                                        }
+                                    >
+                                        {it.name}
+                                    </List.Item>
+                                ))}
+                                {items.length === 0 && <List.Item>尚無獎項，請新增。</List.Item>}
+                            </List>
+                        </Card>
+
+                        <Button color='primary' onClick={handleInitGame} disabled={isRedEnvelope}>
                             初始化遊戲 (進入待機)
                         </Button>
-                        <Button color='danger' onClick={handleReset}>
+                        <Button color='danger' onClick={handleReset} disabled={!isRedEnvelope}>
                             🔥 強制結束本局 (Panic)
                         </Button>
                     </Space>
@@ -127,6 +237,53 @@ const AdminMiniGameTab: React.FC = () => {
                     <div style={{ padding: '12px 0', color: '#888' }}>即將開放</div>
                 </Tabs.Tab>
             </Tabs>
+
+            <Popup
+                visible={itemModalOpen}
+                onClose={() => setItemModalOpen(false)}
+                closeOnMaskClick={false}
+                bodyStyle={{ borderTopLeftRadius: 12, borderTopRightRadius: 12, padding: 16 }}
+            >
+                <h4 style={{ margin: 0, marginBottom: 12 }}>{editingItem ? '編輯獎項' : '新增獎項'}</h4>
+                <Form
+                    form={itemForm}
+                    layout='horizontal'
+                    onFinish={handleSubmitItem}
+                    footer={
+                        <Space justify='between' style={{ width: '100%' }}>
+                            <Button onClick={() => setItemModalOpen(false)}>取消</Button>
+                            <Button type='submit' color='primary'>儲存</Button>
+                        </Space>
+                    }
+                >
+                    <Form.Item name='name' label='名稱' rules={[{ required: true, message: '必填' }]}>
+                        <Input placeholder='例如 iPad Pro' />
+                    </Form.Item>
+                    <Form.Item name='amount' label='數量' rules={[{ required: true, message: '必填' }]}>
+                        <Input type='number' />
+                    </Form.Item>
+                    <Form.Item name='type' label='類型' initialValue='PHYSICAL'>
+                        <Radio.Group>
+                            <Radio value='PHYSICAL'>實體</Radio>
+                            <Radio value='CASH'>現金</Radio>
+                        </Radio.Group>
+                    </Form.Item>
+                    {isCash && (
+                        <Form.Item name='prizeValue' label='現金額度' rules={[{ required: true, message: '必填' }]}>
+                            <Input type='number' />
+                        </Form.Item>
+                    )}
+                    <Form.Item name='displayOrder' label='價值排序'>
+                        <Input type='number' />
+                    </Form.Item>
+                    <Form.Item name='isActive' label='啟用' initialValue={true}>
+                        <Radio.Group>
+                            <Radio value={true}>是</Radio>
+                            <Radio value={false}>否</Radio>
+                        </Radio.Group>
+                    </Form.Item>
+                </Form>
+            </Popup>
         </div>
     );
 };
