@@ -24,7 +24,7 @@ const AdminMiniGameTab: React.FC = () => {
     const [items, setItems] = useState<RedEnvelopeItem[]>([]);
     const [itemModalOpen, setItemModalOpen] = useState<boolean>(false);
     const [editingItem, setEditingItem] = useState<RedEnvelopeItem | null>(null);
-    const [itemForm] = Form.useForm<Partial<RedEnvelopeItem>>();
+    const [itemForm] = Form.useForm<Record<string, any>>();
 
     const loadItems = async () => {
         try {
@@ -105,13 +105,13 @@ const AdminMiniGameTab: React.FC = () => {
     const handleOpenCreate = () => {
         setEditingItem(null);
         itemForm.resetFields();
-        itemForm.setFieldsValue({ type: 'PHYSICAL', prizeValue: 0, amount: 1, displayOrder: items.length });
+        itemForm.setFieldsValue({ type: 'PHYSICAL', prizeValue: 0, amount: 1, displayOrder: items.length, isActive: 'true' });
         setItemModalOpen(true);
     };
 
     const handleOpenEdit = (item: RedEnvelopeItem) => {
         setEditingItem(item);
-        itemForm.setFieldsValue(item);
+        itemForm.setFieldsValue({ ...item, isActive: item.isActive ? 'true' : 'false' });
         setItemModalOpen(true);
     };
 
@@ -136,11 +136,16 @@ const AdminMiniGameTab: React.FC = () => {
                 return;
             }
 
+            const payload = {
+                ...values,
+                isActive: values.isActive === 'true' ? true : values.isActive === 'false' ? false : values.isActive,
+            };
+
             if (editingItem) {
-                await redEnvelopeService.updateItem(editingItem.id, values);
+                await redEnvelopeService.updateItem(editingItem.id, payload);
                 Toast.show({ icon: 'success', content: '已更新獎項' });
             } else {
-                await redEnvelopeService.createItem(values);
+                await redEnvelopeService.createItem(payload);
                 Toast.show({ icon: 'success', content: '已新增獎項' });
             }
 
@@ -276,10 +281,10 @@ const AdminMiniGameTab: React.FC = () => {
                     <Form.Item name='displayOrder' label='價值排序'>
                         <Input type='number' />
                     </Form.Item>
-                    <Form.Item name='isActive' label='啟用' initialValue={true}>
+                    <Form.Item name='isActive' label='啟用' initialValue={'true'}>
                         <Radio.Group>
-                            <Radio value={true}>是</Radio>
-                            <Radio value={false}>否</Radio>
+                            <Radio value={'true'}>是</Radio>
+                            <Radio value={'false'}>否</Radio>
                         </Radio.Group>
                     </Form.Item>
                 </Form>
