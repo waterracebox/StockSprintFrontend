@@ -6,9 +6,10 @@ import type { StockData } from '../types/game';
 interface StockChartProps {
     data: StockData[];
     showAll?: boolean; // 是否顯示全部數據（預設 false，只顯示 28 天）
+    isGameStarted?: boolean; // 遊戲是否已開始
 }
 
-const StockChart: React.FC<StockChartProps> = ({ data, showAll = false }) => {
+const StockChart: React.FC<StockChartProps> = ({ data, showAll = false, isGameStarted = true }) => {
     // 產生唯一 ID
     const chartId = useMemo(() => `stock-chart-${Math.random().toString(36).substr(2, 9)}`, []);
     const chartInstance = useRef<F2.Chart | null>(null);
@@ -156,7 +157,7 @@ const StockChart: React.FC<StockChartProps> = ({ data, showAll = false }) => {
         };
     }, [displayData, chartId]);
 
-    if (displayData.length === 0) {
+    if (!isGameStarted || displayData.length === 0) {
         return (
             <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#999', fontSize: '12px' }}>
                 等待遊戲開始...

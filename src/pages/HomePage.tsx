@@ -89,31 +89,13 @@ const HomePage: React.FC = () => {
     useEffect(() => {
         const handlePopState = () => {
             const hash = window.location.hash;
+            const isUserMenuHash = hash === '#user-menu' || hash === '#avatar-selector' || hash === '#account-settings';
             
             // 根據當前 Hash 決定要打開或關閉哪個浮動視窗
-            if (hash === '#user-menu') {
-                setShowUserMenu(true);
-            } else {
-                setShowUserMenu(false);
-            }
-
-            if (hash === '#avatar-selector') {
-                setShowAvatarSelector(true);
-            } else {
-                setShowAvatarSelector(false);
-            }
-
-            if (hash === '#account-settings') {
-                setShowAccountSettings(true);
-            } else {
-                setShowAccountSettings(false);
-            }
-
-            if (hash === '#chart') {
-                setShowFullChartModal(true);
-            } else {
-                setShowFullChartModal(false);
-            }
+            setShowUserMenu(isUserMenuHash);
+            setShowAvatarSelector(hash === '#avatar-selector');
+            setShowAccountSettings(hash === '#account-settings');
+            setShowFullChartModal(hash === '#chart');
 
             // 【移除】showNewsModal 由 NewsModal 組件自己管理
 
@@ -835,7 +817,7 @@ const HomePage: React.FC = () => {
                                 height: '120px',
                                 position: 'relative'
                             }}>
-                                <StockChart data={stockHistory} />
+                                <StockChart data={stockHistory} isGameStarted={gameState?.isGameStarted} />
                             </div>
                             {stockHistory.length > 0 && (
                                 <div style={{ 
@@ -1054,6 +1036,7 @@ const HomePage: React.FC = () => {
                             }}
                             onClick={() => {
                                 setAccountIsEmployee(!!user?.isEmployee);
+                                setShowUserMenu(true);
                                 openModalWithHash('#account-settings', setShowAccountSettings);
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
@@ -1076,6 +1059,7 @@ const HomePage: React.FC = () => {
                             }}
                             onClick={() => {
                                 setSelectedAvatar(user?.avatar || '');
+                                setShowUserMenu(true);
                                 openModalWithHash('#avatar-selector', setShowAvatarSelector);
                             }}
                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
@@ -1195,7 +1179,7 @@ const HomePage: React.FC = () => {
                                     borderRadius: '8px',
                                     padding: '8px'
                                 }}>
-                                    <StockChart data={stockHistory} showAll={true} />
+                                    <StockChart data={stockHistory} showAll={true} isGameStarted={gameState?.isGameStarted} />
                                 </div>
                                 <div style={{ 
                                     textAlign: 'center',

@@ -11,6 +11,7 @@ interface User {
     stocks: number;
     debt: number;
     firstSignIn: boolean;
+    isEmployee: boolean;
 }
 
 const AdminUsersTab: React.FC = () => {
@@ -118,19 +119,20 @@ const AdminUsersTab: React.FC = () => {
                             <th style={tableCellStyle}>現金</th>
                             <th style={tableCellStyle}>負債</th>
                             <th style={tableCellStyle}>首次登入</th>
+                            <th style={tableCellStyle}>員工</th>
                             <th style={tableCellStyle}>操作</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan={8} style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                                <td colSpan={9} style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
                                     載入中...
                                 </td>
                             </tr>
                         ) : users.length === 0 ? (
                             <tr>
-                                <td colSpan={8} style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+                                <td colSpan={9} style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
                                     無資料
                                 </td>
                             </tr>
@@ -144,6 +146,7 @@ const AdminUsersTab: React.FC = () => {
                                     <td style={tableCellStyle}>${user.cash.toFixed(2)}</td>
                                     <td style={tableCellStyle}>${user.debt.toFixed(2)}</td>
                                     <td style={tableCellStyle}>{user.firstSignIn ? '是' : '否'}</td>
+                                    <td style={tableCellStyle}>{user.isEmployee ? '是' : '否'}</td>
                                     <td style={tableCellStyle}>
                                         <Button
                                             size='mini'

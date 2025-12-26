@@ -11,6 +11,7 @@ interface User {
     stocks: number;
     debt: number;
     firstSignIn: boolean;
+    isEmployee: boolean;
 }
 
 const AdminUserModals: React.FC = () => {
@@ -71,6 +72,7 @@ const AdminUserModals: React.FC = () => {
                     stocks: user.stocks,
                     debt: user.debt,
                     firstSignIn: user.firstSignIn,
+                    isEmployee: user.isEmployee,
                     password: '', // 密碼欄位留空
                 });
             }
@@ -99,6 +101,7 @@ const AdminUserModals: React.FC = () => {
                 stocks: parseInt(values.stocks),
                 debt: parseFloat(values.debt),
                 firstSignIn: values.firstSignIn,
+                isEmployee: values.isEmployee,
                 password: values.password || undefined, // 若為空，後端不更新密碼
             });
 
@@ -147,17 +150,18 @@ const AdminUserModals: React.FC = () => {
             <CenterPopup
                 visible={editModalVisible}
                 onMaskClick={undefined} // 禁止點擊遮罩關閉
-                style={{ width: '90%', maxWidth: '500px' }}
+                style={{ width: '90%', maxWidth: '500px', maxHeight: '90vh' }}
             >
-                <div style={{ padding: '20px' }}>
+                <div style={{ padding: '20px', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                     {/* 標題列 */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1, paddingBottom: '10px' }}>
                         <h2 style={{ margin: 0 }}>編輯玩家: {currentUser?.username}</h2>
                         <CloseOutline fontSize={24} onClick={closeModal} style={{ cursor: 'pointer' }} />
                     </div>
 
-                    {/* 表單 */}
-                    <Form form={form} layout='vertical'>
+                    {/* 表單容器 */}
+                    <div style={{ flex: 1, overflowY: 'auto', marginBottom: '16px' }}>
+                        <Form form={form} layout='vertical'>
                         <Form.Item label='Username'>
                             <Input value={currentUser?.username} disabled />
                         </Form.Item>
@@ -179,16 +183,23 @@ const AdminUserModals: React.FC = () => {
                         <Form.Item name='firstSignIn' label='首次登入' valuePropName='checked'>
                             <Switch />
                         </Form.Item>
+                        <Form.Item name='isEmployee' label='員工身份' valuePropName='checked'>
+                            <Switch />
+                        </Form.Item>
                     </Form>
+                    </div>
 
-                    <Button
-                        block
-                        color='primary'
-                        loading={loading}
-                        onClick={handleSaveEdit}
-                    >
-                        儲存變更
-                    </Button>
+                    {/* 按鈕固定在底部 */}
+                    <div style={{ position: 'sticky', bottom: 0, backgroundColor: 'white', paddingTop: '10px' }}>
+                        <Button
+                            block
+                            color='primary'
+                            loading={loading}
+                            onClick={handleSaveEdit}
+                        >
+                            儲存變更
+                        </Button>
+                    </div>
                 </div>
             </CenterPopup>
 

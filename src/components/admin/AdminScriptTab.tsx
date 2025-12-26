@@ -71,10 +71,9 @@ const trendEnumToCN: Record<string, string> = {
 };
 
 const simNameToCN: Record<string, string> = {
-  Perfect: '完美玩家',
-  Smart: '聰明玩家',
-  Random: '隨機玩家',
-  Unlucky: '倒楣玩家',
+  Lucky: '幸運玩家（90% 勝率）',
+  Unlucky: '倒楣玩家（90% 敗率）',
+  Random: '隨機玩家（真實玩家基準）',
 };
 
 const normalizeTrend = (val: string) => {
@@ -397,7 +396,7 @@ const AdminScriptTab: React.FC = () => {
           <Button block color='primary' loading={loading} onClick={handleRunSimulation}>
             開始模擬
           </Button>
-          <List header='模擬結果 (1000 次)'>
+          <List header='模擬結果 (10000 次)'>
             {simResult.map((row) => (
               <List.Item
                 key={row.name}
