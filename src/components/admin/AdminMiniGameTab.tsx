@@ -74,7 +74,7 @@ const AdminMiniGameTab: React.FC = () => {
     return (
         <div style={{ padding: 16 }}>
             <Card title='小遊戲狀態' style={{ marginBottom: 20 }}>
-                <Space direction='vertical' block size={12}>
+                <Space direction='vertical' block>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ minWidth: 72 }}>目前類型：</span>
                         <Tag color='primary'>{status.gameType}</Tag>
