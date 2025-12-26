@@ -10,6 +10,7 @@ import AdminUsersTab from '../components/AdminUsersTab';
 import AdminUserModals from '../components/AdminUserModals';
 import MonitorModal from '../components/MonitorModal';
 import AdminScriptTab from '../components/admin/AdminScriptTab';
+import AdminMiniGameTab from '../components/admin/AdminMiniGameTab';
 
 const AdminPage: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -119,6 +120,9 @@ const AdminPage: React.FC = () => {
                 </Tabs.Tab>
                 <Tabs.Tab title='遊戲劇本' key='script'>
                     <AdminScriptTab />
+                </Tabs.Tab>
+                <Tabs.Tab title='小遊戲' key='mini-game'>
+                    <AdminMiniGameTab />
                 </Tabs.Tab>
             </Tabs>
 

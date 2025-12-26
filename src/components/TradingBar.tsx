@@ -10,6 +10,7 @@ interface TradingBarProps {
     isTrading: boolean;
     isGameStarted: boolean;
     onTradingStart: () => void;
+    onOpenMiniGame: () => void;
     maxLeverage?: number; // 新增：從後端取得的最大槓桿倍數
     cash?: number; // 新增：使用者現金
     // 【新增】地下錢莊相關 props
@@ -26,6 +27,7 @@ const TradingBar: React.FC<TradingBarProps> = ({
     isTrading,
     isGameStarted,
     onTradingStart,
+    onOpenMiniGame,
     maxLeverage = 100, // 預設值 100（向後相容）
     cash = 0, // 預設值 0
     debt = 0,
@@ -358,12 +360,7 @@ const TradingBar: React.FC<TradingBarProps> = ({
                     <Button 
                         size="small"
                         color="warning"
-                        onClick={() => {
-                            Toast.show({
-                                icon: 'fail',
-                                content: '小遊戲功能尚未實作',
-                            });
-                        }}
+                        onClick={onOpenMiniGame}
                     >
                         🎮 小遊戲
                     </Button>

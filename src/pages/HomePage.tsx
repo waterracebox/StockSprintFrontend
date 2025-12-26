@@ -10,6 +10,8 @@ import StockChart from '../components/StockChart';
 import TradingBar from '../components/TradingBar';
 import Leaderboard from '../components/Leaderboard';
 import NewsModal from '../components/NewsModal';
+import MiniGameOverlay from '../components/MiniGameOverlay';
+import type { MiniGameSyncState } from '../components/MiniGameOverlay';
 
 /**
  * 格式化倒數計時（秒數轉 MM:SS）
@@ -45,6 +47,23 @@ const HomePage: React.FC = () => {
     // 【新增】新聞相關狀態
     const [newsHistory, setNewsHistory] = useState<NewsItem[]>([]);
     const [hasUnreadNews, setHasUnreadNews] = useState(false);
+    const [miniGameState, setMiniGameState] = useState<MiniGameSyncState | null>(null);
+    const handleOpenMiniGame = () => {
+        setMiniGameState((prev) => {
+            if (prev && prev.gameType !== 'NONE') {
+                return prev;
+            }
+            // 若尚未收到後端狀態，先顯示占位 Overlay，待後端同步後覆蓋
+            return {
+                gameType: 'RED_ENVELOPE',
+                phase: 'IDLE',
+                startTime: Date.now(),
+                endTime: 0,
+                data: {},
+            };
+        });
+        Toast.show({ icon: 'success', content: '已開啟小遊戲視窗' });
+    };
     
     // 交易操作狀態
     const [isTrading, setIsTrading] = useState(false); // 交易鎖定狀態
@@ -177,6 +196,7 @@ const HomePage: React.FC = () => {
         newSocket.on('disconnect', (reason) => {
             console.log(`[Socket] 已斷線 (原因: ${reason})`);
             setIsSocketConnected(false);
+            setMiniGameState(null);
         });
 
         // ==================== 遊戲事件監聽 ====================
@@ -218,6 +238,12 @@ const HomePage: React.FC = () => {
                 content: '狀態同步完成',
                 duration: 1000,
             });
+        });
+
+        // 小遊戲狀態同步
+        newSocket.on('MINIGAME_SYNC', (payload: MiniGameSyncState) => {
+            console.log('[Socket] 小遊戲同步:', payload);
+            setMiniGameState(payload);
         });
 
         // 2. 遊戲狀態更新（每秒廣播）
@@ -962,6 +988,7 @@ const HomePage: React.FC = () => {
                 isTrading={isTrading}
                 isGameStarted={gameState?.isGameStarted ?? false}
                 onTradingStart={() => setIsTrading(true)}
+                onOpenMiniGame={handleOpenMiniGame}
                 maxLeverage={gameState?.maxLeverage ?? 100}
                 cash={assets.cash}
                 stocks={assets.stocks}
@@ -1373,6 +1400,8 @@ const HomePage: React.FC = () => {
                     </Grid>
                 </div>
             </Popup>
+
+            <MiniGameOverlay state={miniGameState} />
 
             {/* ==================== 【新增】新聞列表 Modal ==================== */}
             <NewsModal 
