@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Tabs, NavBar, Badge } from 'antd-mobile';
+import { Tabs, NavBar, Badge, Button } from 'antd-mobile';
 import { io } from 'socket.io-client';
 import { authAPI } from '../services/auth';
 import type { User } from '../services/auth';
@@ -89,18 +89,35 @@ const AdminPage: React.FC = () => {
                         style={{ 
                             display: 'flex', 
                             alignItems: 'center', 
-                            gap: '8px',
-                            cursor: 'pointer',
+                            gap: '10px',
                             padding: '0 8px'
                         }}
-                        onClick={() => setShowMonitor(true)}
                     >
-                        <span style={{ fontSize: '14px' }}>在線人數</span>
-                        <Badge 
-                            content={onlineCount} 
-                            color='#52c41a'
-                            style={{ '--right': '0px', '--top': '0px' }}
-                        />
+                        <Button
+                            size='small'
+                            color='primary'
+                            fill='none'
+                            style={{ fontSize: 12, color: '#8ec5ff', textDecoration: 'underline', padding: '0 6px', height: 'auto' }}
+                            onClick={() => navigate('/display')}
+                        >
+                            投影頁
+                        </Button>
+                        <div 
+                            style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px',
+                                cursor: 'pointer'
+                            }}
+                            onClick={() => setShowMonitor(true)}
+                        >
+                            <span style={{ fontSize: '14px' }}>在線人數</span>
+                            <Badge 
+                                content={onlineCount} 
+                                color='#52c41a'
+                                style={{ '--right': '0px', '--top': '0px' }}
+                            />
+                        </div>
                     </div>
                 }
             >

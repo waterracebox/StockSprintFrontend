@@ -11,6 +11,7 @@ interface TradingBarProps {
     isGameStarted: boolean;
     onTradingStart: () => void;
     onOpenMiniGame: () => void;
+    miniGameState?: { gameType: string } | null;
     maxLeverage?: number; // 新增：從後端取得的最大槓桿倍數
     cash?: number; // 新增：使用者現金
     // 【新增】地下錢莊相關 props
@@ -28,6 +29,7 @@ const TradingBar: React.FC<TradingBarProps> = ({
     isGameStarted,
     onTradingStart,
     onOpenMiniGame,
+    miniGameState,
     maxLeverage = 100, // 預設值 100（向後相容）
     cash = 0, // 預設值 0
     debt = 0,
@@ -310,6 +312,8 @@ const TradingBar: React.FC<TradingBarProps> = ({
         }
     };
 
+    const hasMiniGame = !!miniGameState && miniGameState.gameType !== 'NONE';
+
     return (
         <div style={{
             position: 'fixed',
@@ -357,13 +361,31 @@ const TradingBar: React.FC<TradingBarProps> = ({
                     </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <Button 
-                        size="small"
-                        color="warning"
-                        onClick={onOpenMiniGame}
-                    >
-                        🎮 小遊戲
-                    </Button>
+                    <div style={{ position: 'relative' }}>
+                        <Button 
+                            size="small"
+                            color="warning"
+                            onClick={onOpenMiniGame}
+                            disabled={!hasMiniGame}
+                            style={!hasMiniGame ? { opacity: 0.6 } : undefined}
+                        >
+                            🎮 小遊戲
+                        </Button>
+                        {hasMiniGame && (
+                            <span
+                                style={{
+                                    position: 'absolute',
+                                    top: -2,
+                                    right: -2,
+                                    width: 10,
+                                    height: 10,
+                                    borderRadius: '50%',
+                                    background: '#ff3141',
+                                    boxShadow: '0 0 0 4px rgba(255,49,65,0.25)',
+                                }}
+                            />
+                        )}
+                    </div>
                     
                     {/* 【新增】地下錢莊按鈕 */}
                     <Button

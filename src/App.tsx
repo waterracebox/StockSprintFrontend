@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import AdminPage from './pages/AdminPage';
+import DisplayPage from './pages/DisplayPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
 
@@ -35,6 +36,16 @@ const App: React.FC = () => {
                     element={
                         <ProtectedRoute>
                             <AdminPage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* 大螢幕展示頁 */}
+                <Route
+                    path="/display"
+                    element={
+                        <ProtectedRoute>
+                            <DisplayPage />
                         </ProtectedRoute>
                     }
                 />

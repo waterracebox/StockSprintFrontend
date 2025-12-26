@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, Card, Dialog, Space, Tag, Toast } from 'antd-mobile';
+import { Button, Card, Dialog, Space, Tag, Toast, Tabs } from 'antd-mobile';
 import { io, Socket } from 'socket.io-client';
 
 interface MiniGameSyncPayload {
@@ -71,24 +71,62 @@ const AdminMiniGameTab: React.FC = () => {
         Toast.show({ icon: 'success', content: '已送出重置指令' });
     };
 
+    const handleInitGame = () => {
+        if (!socketRef.current) {
+            Toast.show({ icon: 'fail', content: '尚未連線，請稍後重試' });
+            return;
+        }
+
+        socketRef.current.emit('ADMIN_MINIGAME_ACTION', { type: 'INIT_GAME' });
+        Toast.show({ icon: 'success', content: '已送出初始化指令' });
+    };
+
     return (
         <div style={{ padding: 16 }}>
             <Card title='小遊戲狀態' style={{ marginBottom: 20 }}>
                 <Space direction='vertical' block>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ minWidth: 72 }}>目前類型：</span>
-                        <Tag color='primary'>{status.gameType}</Tag>
+                        <Tag color='primary'>
+                            {status.gameType === 'RED_ENVELOPE' && '紅包抽獎'}
+                            {status.gameType === 'QUIZ' && '機智問答'}
+                            {status.gameType === 'MINORITY' && '少數決'}
+                            {status.gameType === 'NONE' && '無進行遊戲'}
+                        </Tag>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ minWidth: 72 }}>階段：</span>
-                        <Tag color='warning'>{status.phase}</Tag>
+                        <Tag color='warning'>
+                            {status.phase?.toUpperCase() === 'IDLE' && '待機中'}
+                            {status.phase?.toUpperCase() === 'SHUFFLE' && '洗牌'}
+                            {status.phase?.toUpperCase() === 'PREPARE' && '準備'}
+                            {status.phase?.toUpperCase() === 'GAMING' && '進行中'}
+                            {status.phase?.toUpperCase() === 'REVEAL' && '揭曉'}
+                            {status.phase?.toUpperCase() === 'RESULT' && '結算'}
+                            {!status.phase && '未設定'}
+                        </Tag>
                     </div>
                 </Space>
             </Card>
 
-            <Button color='danger' block style={{ marginTop: 4 }} onClick={handleReset}>
-                強制結束本局 (Panic Button)
-            </Button>
+            <Tabs>
+                <Tabs.Tab title='紅包' key='red-envelope'>
+                    <Space direction='vertical' block>
+                        <Button color='primary' onClick={handleInitGame}>
+                            初始化遊戲 (進入待機)
+                        </Button>
+                        <Button color='danger' onClick={handleReset}>
+                            🔥 強制結束本局 (Panic)
+                        </Button>
+                    </Space>
+                </Tabs.Tab>
+                <Tabs.Tab title='問答' key='quiz'>
+                    <div style={{ padding: '12px 0', color: '#888' }}>即將開放</div>
+                </Tabs.Tab>
+                <Tabs.Tab title='少數決' key='minority'>
+                    <div style={{ padding: '12px 0', color: '#888' }}>即將開放</div>
+                </Tabs.Tab>
+            </Tabs>
         </div>
     );
 };

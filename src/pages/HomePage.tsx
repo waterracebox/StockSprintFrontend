@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Toast, Avatar, Dialog, Popup, Grid, Modal, Checkbox, Space } from 'antd-mobile';
 import { RightOutline, CloseOutline } from 'antd-mobile-icons';
@@ -34,6 +34,7 @@ const HomePage: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isSocketConnected, setIsSocketConnected] = useState(false);
+    const wakeLockRef = useRef<any>(null);
     
     // 遊戲狀態
     const [gameState, setGameState] = useState<GameState | null>(null);
@@ -48,21 +49,14 @@ const HomePage: React.FC = () => {
     const [newsHistory, setNewsHistory] = useState<NewsItem[]>([]);
     const [hasUnreadNews, setHasUnreadNews] = useState(false);
     const [miniGameState, setMiniGameState] = useState<MiniGameSyncState | null>(null);
+    const [isMiniGameOverlayVisible, setIsMiniGameOverlayVisible] = useState(false);
+    const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
     const handleOpenMiniGame = () => {
-        setMiniGameState((prev) => {
-            if (prev && prev.gameType !== 'NONE') {
-                return prev;
-            }
-            // 若尚未收到後端狀態，先顯示占位 Overlay，待後端同步後覆蓋
-            return {
-                gameType: 'RED_ENVELOPE',
-                phase: 'IDLE',
-                startTime: Date.now(),
-                endTime: 0,
-                data: {},
-            };
-        });
-        Toast.show({ icon: 'success', content: '已開啟小遊戲視窗' });
+        if (miniGameState && miniGameState.gameType !== 'NONE') {
+            setIsMiniGameOverlayVisible(true);
+            return;
+        }
+        Toast.show({ icon: 'fail', content: '目前沒有進行中的小遊戲' });
     };
     
     // 交易操作狀態
@@ -109,14 +103,14 @@ const HomePage: React.FC = () => {
         const handlePopState = () => {
             const hash = window.location.hash;
             const isUserMenuHash = hash === '#user-menu' || hash === '#avatar-selector' || hash === '#account-settings';
+            const isMiniGameHash = hash === '#minigame';
             
             // 根據當前 Hash 決定要打開或關閉哪個浮動視窗
             setShowUserMenu(isUserMenuHash);
             setShowAvatarSelector(hash === '#avatar-selector');
             setShowAccountSettings(hash === '#account-settings');
             setShowFullChartModal(hash === '#chart');
-
-            // 【移除】showNewsModal 由 NewsModal 組件自己管理
+            setIsMiniGameOverlayVisible(isMiniGameHash && !!miniGameState && miniGameState.gameType !== 'NONE');
 
             // 如果 Hash 為空，關閉所有浮動視窗
             if (!hash) {
@@ -124,6 +118,7 @@ const HomePage: React.FC = () => {
                 setShowAvatarSelector(false);
                 setShowFullChartModal(false);
                 setShowAccountSettings(false);
+                setIsMiniGameOverlayVisible(false);
             }
         };
 
@@ -136,7 +131,7 @@ const HomePage: React.FC = () => {
         return () => {
             window.removeEventListener('popstate', handlePopState);
         };
-    }, []);
+    }, [miniGameState]);
 
     // 取得使用者資訊
     useEffect(() => {
@@ -147,6 +142,71 @@ const HomePage: React.FC = () => {
                 console.error('[Auth] 無法取得使用者資訊:', error);
             });
     }, []);
+
+    // 小遊戲 Overlay 與 Hash 同步，確保手機返回鍵可以收起 Overlay
+    useEffect(() => {
+        if (isMiniGameOverlayVisible && miniGameState && miniGameState.gameType !== 'NONE') {
+            if (window.location.hash !== '#minigame') {
+                window.history.pushState(null, '', `${window.location.pathname}#minigame`);
+            }
+        } else {
+            if (window.location.hash === '#minigame') {
+                window.history.replaceState(null, '', window.location.pathname);
+            }
+        }
+    }, [isMiniGameOverlayVisible, miniGameState]);
+
+    // 防止螢幕休眠（Wake Lock），Overlay 顯示時啟用；若不支援則播放隱藏循環影片作為 fallback
+    useEffect(() => {
+        let cancelled = false;
+
+        const requestWakeLock = async () => {
+            if (!(navigator as any).wakeLock) {
+                console.warn('[MiniGame] 瀏覽器不支援 Wake Lock API，啟用影片保持喚醒作為 fallback');
+                if (hiddenVideoRef.current) {
+                    hiddenVideoRef.current.play().catch(() => {});
+                }
+                return;
+            }
+            try {
+                const lock = await (navigator as any).wakeLock.request('screen');
+                if (cancelled) {
+                    await lock.release();
+                    return;
+                }
+                wakeLockRef.current = lock;
+                lock.addEventListener('release', () => {
+                    console.log('[MiniGame] Wake Lock 已釋放');
+                });
+                console.log('[MiniGame] Wake Lock 啟用中');
+            } catch (err) {
+                console.warn('[MiniGame] 無法啟用 Wake Lock:', err);
+            }
+        };
+
+        if (isMiniGameOverlayVisible && miniGameState && miniGameState.gameType !== 'NONE') {
+            requestWakeLock();
+        } else {
+            if (wakeLockRef.current) {
+                wakeLockRef.current.release?.();
+                wakeLockRef.current = null;
+            }
+            if (hiddenVideoRef.current) {
+                hiddenVideoRef.current.pause();
+            }
+        }
+
+        return () => {
+            cancelled = true;
+            if (wakeLockRef.current) {
+                wakeLockRef.current.release?.();
+                wakeLockRef.current = null;
+            }
+            if (hiddenVideoRef.current) {
+                hiddenVideoRef.current.pause();
+            }
+        };
+    }, [isMiniGameOverlayVisible, miniGameState]);
 
     // WebSocket 連線與事件監聽
     useEffect(() => {
@@ -197,6 +257,7 @@ const HomePage: React.FC = () => {
             console.log(`[Socket] 已斷線 (原因: ${reason})`);
             setIsSocketConnected(false);
             setMiniGameState(null);
+            setIsMiniGameOverlayVisible(false);
         });
 
         // ==================== 遊戲事件監聽 ====================
@@ -243,6 +304,21 @@ const HomePage: React.FC = () => {
         // 小遊戲狀態同步
         newSocket.on('MINIGAME_SYNC', (payload: MiniGameSyncState) => {
             console.log('[Socket] 小遊戲同步:', payload);
+            const nextPhase = (payload.phase || '').toUpperCase();
+            const nextGame = payload.gameType;
+
+            if (nextGame !== 'NONE') {
+                setIsMiniGameOverlayVisible(true);
+            }
+            if (nextGame === 'NONE') {
+                setIsMiniGameOverlayVisible(false);
+            }
+
+            // 當後端同步為 RED_ENVELOPE/IDLE 時直接展開 Overlay
+            if (nextGame === 'RED_ENVELOPE' && nextPhase === 'IDLE') {
+                setIsMiniGameOverlayVisible(true);
+            }
+
             setMiniGameState(payload);
         });
 
@@ -989,6 +1065,7 @@ const HomePage: React.FC = () => {
                 isGameStarted={gameState?.isGameStarted ?? false}
                 onTradingStart={() => setIsTrading(true)}
                 onOpenMiniGame={handleOpenMiniGame}
+                miniGameState={miniGameState}
                 maxLeverage={gameState?.maxLeverage ?? 100}
                 cash={assets.cash}
                 stocks={assets.stocks}
@@ -1401,7 +1478,23 @@ const HomePage: React.FC = () => {
                 </div>
             </Popup>
 
-            <MiniGameOverlay state={miniGameState} />
+            <MiniGameOverlay
+                state={miniGameState}
+                visible={isMiniGameOverlayVisible && !!miniGameState && miniGameState.gameType !== 'NONE'}
+                totalAssets={totalAssets}
+                currentPrice={currentPrice}
+                onCollapse={() => setIsMiniGameOverlayVisible(false)}
+            />
+
+            {/* 隱藏影片：在不支援 WakeLock 時維持螢幕喚醒 */}
+            <video
+                ref={hiddenVideoRef}
+                src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+                loop
+                muted
+                playsInline
+                style={{ width: 1, height: 1, opacity: 0, position: 'fixed', bottom: -10, right: -10 }}
+            />
 
             {/* ==================== 【新增】新聞列表 Modal ==================== */}
             <NewsModal 
