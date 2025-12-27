@@ -12,10 +12,20 @@ import MonitorModal from '../components/MonitorModal';
 import AdminScriptTab from '../components/admin/AdminScriptTab';
 import AdminMiniGameTab from '../components/admin/AdminMiniGameTab';
 
+// 解析 hash 以維持正確主頁籤（避免被子層 modal hash 影響）
+const getTabFromHash = (hash: string): string => {
+    const key = (hash || '').replace(/^#/, '').toLowerCase();
+    if (key.startsWith('user')) return 'users';
+    if (key.startsWith('script') || key.startsWith('event') || key.startsWith('json') || key.startsWith('ai')) return 'script';
+    if (key === 'control' || key === 'params' || key === 'minigame') return key;
+    return 'control';
+};
+
 const AdminPage: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [onlineCount, setOnlineCount] = useState<number>(0);
     const [showMonitor, setShowMonitor] = useState<boolean>(false);
+    const [activeKey, setActiveKey] = useState<string>('control');
     const navigate = useNavigate();
 
     // 驗證 Admin 權限
@@ -74,6 +84,23 @@ const AdminPage: React.FC = () => {
         return () => window.removeEventListener('user-list-refresh', handleRefresh);
     }, []);
 
+    // 初始化頁籤並監聽 hash 變化
+    useEffect(() => {
+        setActiveKey(getTabFromHash(window.location.hash));
+
+        const handleHashChange = () => {
+            setActiveKey(getTabFromHash(window.location.hash));
+        };
+
+        window.addEventListener('hashchange', handleHashChange);
+        return () => window.removeEventListener('hashchange', handleHashChange);
+    }, []);
+
+    const handleTabChange = (key: string) => {
+        setActiveKey(key);
+        window.location.hash = key;
+    };
+
     if (!user) {
         return <div style={{ textAlign: 'center', padding: '50px' }}>載入中...</div>;
     }
@@ -125,7 +152,7 @@ const AdminPage: React.FC = () => {
             </NavBar>
 
             {/* Tab 切換 */}
-            <Tabs defaultActiveKey='control'>
+            <Tabs activeKey={activeKey} onChange={handleTabChange}>
                 <Tabs.Tab title='遊戲控制' key='control'>
                     <AdminControlTab />
                 </Tabs.Tab>
@@ -138,7 +165,7 @@ const AdminPage: React.FC = () => {
                 <Tabs.Tab title='遊戲劇本' key='script'>
                     <AdminScriptTab />
                 </Tabs.Tab>
-                <Tabs.Tab title='小遊戲' key='mini-game'>
+                <Tabs.Tab title='小遊戲' key='minigame'>
                     <AdminMiniGameTab />
                 </Tabs.Tab>
             </Tabs>

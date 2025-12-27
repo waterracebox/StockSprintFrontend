@@ -270,7 +270,7 @@ const AdminMiniGameTab: React.FC = () => {
                     <Form.Item name='type' label='類型' initialValue='PHYSICAL'>
                         <Radio.Group>
                             <Radio value='PHYSICAL'>實體</Radio>
-                            <Radio value='CASH'>現金</Radio>
+                            <Radio value='CASH'>遊戲現金</Radio>
                         </Radio.Group>
                     </Form.Item>
                     {isCash && (
