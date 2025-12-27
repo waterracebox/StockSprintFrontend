@@ -110,15 +110,20 @@ const HomePage: React.FC = () => {
             setShowAvatarSelector(hash === '#avatar-selector');
             setShowAccountSettings(hash === '#account-settings');
             setShowFullChartModal(hash === '#chart');
-            setIsMiniGameOverlayVisible(isMiniGameHash && !!miniGameState && miniGameState.gameType !== 'NONE');
 
-            // 如果 Hash 為空，關閉所有浮動視窗
+            if (isMiniGameHash) {
+                setIsMiniGameOverlayVisible(!!miniGameState && miniGameState.gameType !== 'NONE');
+            }
+
+            // 如果 Hash 為空，關閉所有浮動視窗；Overlay 只有在沒有進行中的遊戲時才強制關閉
             if (!hash) {
                 setShowUserMenu(false);
                 setShowAvatarSelector(false);
                 setShowFullChartModal(false);
                 setShowAccountSettings(false);
-                setIsMiniGameOverlayVisible(false);
+                if (!miniGameState || miniGameState.gameType === 'NONE') {
+                    setIsMiniGameOverlayVisible(false);
+                }
             }
         };
 
@@ -302,24 +307,56 @@ const HomePage: React.FC = () => {
         });
 
         // 小遊戲狀態同步
+        const hasInitialMiniGameSyncRef = { current: false } as { current: boolean };
+
         newSocket.on('MINIGAME_SYNC', (payload: MiniGameSyncState) => {
             console.log('[Socket] 小遊戲同步:', payload);
             const nextPhase = (payload.phase || '').toUpperCase();
             const nextGame = payload.gameType;
 
+            // 首次同步（例如頁面 refresh）僅更新狀態，不自動打開 overlay
+            if (!hasInitialMiniGameSyncRef.current) {
+                hasInitialMiniGameSyncRef.current = true;
+                setMiniGameState(payload);
+                if (nextGame === 'NONE') {
+                    setIsMiniGameOverlayVisible(false);
+                }
+                return;
+            }
+
+            // 後續同步（如 admin 觸發 INIT/SHUFFLE）才自動打開
             if (nextGame !== 'NONE') {
                 setIsMiniGameOverlayVisible(true);
             }
             if (nextGame === 'NONE') {
                 setIsMiniGameOverlayVisible(false);
             }
-
-            // 當後端同步為 RED_ENVELOPE/IDLE 時直接展開 Overlay
             if (nextGame === 'RED_ENVELOPE' && nextPhase === 'IDLE') {
                 setIsMiniGameOverlayVisible(true);
             }
 
             setMiniGameState(payload);
+        });
+
+        // 小遊戲參與者/紅包定時廣播（5 秒一次）
+        newSocket.on('MINIGAME_PARTICIPANTS', (payload: { participants: any[]; packets: any[]; updatedAt?: number }) => {
+            console.log('[Socket] 收到 MINIGAME_PARTICIPANTS 廣播', {
+                participants: payload.participants?.length ?? 0,
+                packets: payload.packets?.length ?? 0,
+                updatedAt: payload.updatedAt,
+            });
+
+            setMiniGameState((prev) => {
+                if (!prev || prev.gameType === 'NONE') return prev;
+                return {
+                    ...prev,
+                    data: {
+                        ...prev.data,
+                        participants: payload.participants || prev.data?.participants || [],
+                        packets: payload.packets?.length ? payload.packets : prev.data?.packets || [],
+                    },
+                };
+            });
         });
 
         // 2. 遊戲狀態更新（每秒廣播）
