@@ -1,5 +1,6 @@
 import React from 'react';
 import RedEnvelopeUserView from '../games/RedEnvelope/RedEnvelopeUserView';
+import type { Socket } from 'socket.io-client';
 
 export interface MiniGameSyncState {
     gameType: 'NONE' | 'RED_ENVELOPE' | 'QUIZ' | 'MINORITY';
@@ -15,9 +16,11 @@ export interface MiniGameOverlayProps {
     totalAssets: number;
     currentPrice: number;
     onCollapse: () => void;
+    socket: Socket | null;
+    selfUserId?: number | null;
 }
 
-const MiniGameOverlay: React.FC<MiniGameOverlayProps> = ({ state, visible, totalAssets, currentPrice, onCollapse }) => {
+const MiniGameOverlay: React.FC<MiniGameOverlayProps> = ({ state, visible, totalAssets, currentPrice, onCollapse, socket, selfUserId }) => {
     if (!visible || !state || state.gameType === 'NONE') return null;
 
     switch (state.gameType) {
@@ -28,6 +31,8 @@ const MiniGameOverlay: React.FC<MiniGameOverlayProps> = ({ state, visible, total
                     totalAssets={totalAssets}
                     currentPrice={currentPrice}
                     onCollapse={onCollapse}
+                    socket={socket}
+                    selfUserId={selfUserId}
                 />
             );
         default:

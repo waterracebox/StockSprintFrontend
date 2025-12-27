@@ -1,16 +1,20 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Toast } from 'antd-mobile';
+import type { Socket } from 'socket.io-client';
+import RedPacket, { type RedPacketStatus } from './RedPacket';
 import type { MiniGameSyncState } from '../../containers/MiniGameOverlay';
 
-const PACKET_CENTER_X = 50;
-const PACKET_CENTER_Y = 45;
 const PACKET_WIDTH = 60;
 const PACKET_HEIGHT = 78;
-const GATHER_DELAY = 2500;
 const RIGHT_DURATION = 200;
 const LEFT_DURATION = 200;
-const PAUSE_DURATION = 300;
-const CUT_INTERVAL = RIGHT_DURATION + LEFT_DURATION + PAUSE_DURATION;
+const CUT_SHIFT = 60;
+const CUT_INTERVAL = 1500; // 切牌週期
+const GATHER_DURATION = 1000; // 集中動畫時間（毫秒）
+const ANIMATION_DURATION = 3000;
+const DEAL_RETURN_DURATION = 0.75; // 平移回網格的時間（秒）
+const MOVE_CENTER_DURATION = 1.0; // 從網格平移到中心堆疊的時間（秒）
 
 type Participant = { userId: number; displayName: string; avatar: string | null };
 type Packet = { index: number; name?: string; isTaken?: boolean; ownerId?: string | null; type?: string; prizeValue?: number };
@@ -20,20 +24,25 @@ interface Props {
     totalAssets: number;
     currentPrice: number;
     onCollapse: () => void;
+    socket: Socket | null;
+    selfUserId?: number | null;
 }
 
-const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice, onCollapse }) => {
+const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice, onCollapse, socket, selfUserId }) => {
     const normalizedPhase = (state.phase || '').toUpperCase();
     const [participantList, setParticipantList] = useState<Participant[]>(state.data?.participants || []);
     const [packets, setPackets] = useState<Packet[]>(state.data?.packets || []);
-    const [shuffledPackets, setShuffledPackets] = useState<Packet[]>(state.data?.packets || []);
-    const [isGathered, setIsGathered] = useState(false);
+    const [orderedPackets, setOrderedPackets] = useState<Packet[]>(state.data?.packets || []);
     const [cuttingIds, setCuttingIds] = useState<number[]>([]);
-    const [isCuttingRight, setIsCuttingRight] = useState(false);
+    const [isGathered, setIsGathered] = useState(false);
+    const [isCentering, setIsCentering] = useState(false);
+    const [countdown, setCountdown] = useState<number>(0);
+    const [pendingIndex, setPendingIndex] = useState<number | null>(null);
+    const [remainingMs, setRemainingMs] = useState<number>(0);
     const cutIntervalRef = useRef<number | null>(null);
     const gatherTimeoutRef = useRef<number | null>(null);
     const cutTimeoutsRef = useRef<number[]>([]);
-    const shuffledRef = useRef<Packet[]>(shuffledPackets);
+    const orderedRef = useRef<Packet[]>(orderedPackets);
 
     const clearCutTimers = useCallback(() => {
         if (cutIntervalRef.current) {
@@ -47,94 +56,124 @@ const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice
         cutTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
         cutTimeoutsRef.current = [];
         setCuttingIds([]);
-        setIsCuttingRight(false);
+        setIsCentering(false);
     }, []);
 
     useEffect(() => {
-        shuffledRef.current = shuffledPackets;
-    }, [shuffledPackets]);
+        orderedRef.current = orderedPackets;
+    }, [orderedPackets]);
 
     useEffect(() => {
         setParticipantList((state.data?.participants as Participant[] | undefined) || []);
 
         const incoming = [...((state.data?.packets as Packet[] | undefined) || [])].sort((a, b) => a.index - b.index);
-        setPackets((prev: Packet[]) => {
-            const sameLength = prev.length === incoming.length;
-            const sameOrder = sameLength && prev.every((p: Packet, idx: number) => p.index === incoming[idx]?.index);
-            const next = sameOrder ? prev : incoming;
-            if (normalizedPhase !== 'SHUFFLE') {
-                setShuffledPackets(next);
-            }
-            return next;
-        });
+        setPackets(incoming);
+        if (normalizedPhase !== 'SHUFFLE') {
+            setOrderedPackets(incoming);
+        }
     }, [state.data?.participants, state.data?.packets, normalizedPhase]);
 
-    // 進入洗牌時先堆疊，之後啟動切牌循環
+    const runCut = useCallback(() => {
+        const current = orderedRef.current;
+        if (!current.length) return;
+
+        const batchSize = Math.max(1, Math.ceil(current.length / 3));
+        const batch = current.slice(0, batchSize);
+        const batchIds = batch.map((p) => p.index);
+        setCuttingIds(batchIds);
+
+        const rotateTimer = window.setTimeout(() => {
+            setOrderedPackets((prev) => {
+                if (!prev.length) return prev;
+                const move = prev.slice(0, batchSize);
+                const rest = prev.slice(batchSize);
+                return [...rest, ...move];
+            });
+            setCuttingIds([]);
+        }, RIGHT_DURATION + LEFT_DURATION);
+
+        cutTimeoutsRef.current.push(rotateTimer);
+    }, []);
+
+    // 進入洗牌：先集中到中心，再啟動固定節奏的切牌
     useEffect(() => {
         clearCutTimers();
 
         if (normalizedPhase === 'SHUFFLE') {
-            setShuffledPackets(packets);
+            setOrderedPackets((prev) => (prev.length ? prev : packets));
+            setIsCentering(true);
             setIsGathered(false);
-            setIsCuttingRight(false);
             setCuttingIds([]);
 
             gatherTimeoutRef.current = window.setTimeout(() => {
+                setIsCentering(false);
                 setIsGathered(true);
-            }, GATHER_DELAY);
+
+                const startCutTimer = window.setTimeout(() => {
+                    runCut();
+                    cutIntervalRef.current = window.setInterval(runCut, CUT_INTERVAL);
+                }, 300);
+
+                cutTimeoutsRef.current.push(startCutTimer);
+            }, GATHER_DURATION);
         } else {
+            setIsCentering(false);
             setIsGathered(false);
             setCuttingIds([]);
-            setIsCuttingRight(false);
         }
 
         return () => clearCutTimers();
-    }, [normalizedPhase, packets, clearCutTimers]);
+    }, [normalizedPhase, packets, clearCutTimers, runCut]);
 
-    // 切牌動畫：固定節奏將底部牌推到頂部，避免隨機造成暈眩
     useEffect(() => {
-        if (normalizedPhase !== 'SHUFFLE' || !isGathered || !shuffledRef.current.length) return undefined;
+        if (normalizedPhase !== 'COUNTDOWN') {
+            setCountdown(0);
+            setRemainingMs(0);
+            return undefined;
+        }
 
-        const runCut = () => {
-            const current = shuffledRef.current;
-            if (!current.length) return;
-
-            const batchSize = Math.max(1, Math.ceil(current.length / 3));
-            const batch = current.slice(0, batchSize).map((p: Packet) => p.index);
-            setCuttingIds(batch);
-            setIsCuttingRight(true);
-
-            const rightTimer = window.setTimeout(() => {
-                setShuffledPackets((prev: Packet[]) => {
-                    if (!prev.length) return prev;
-                    const move = prev.slice(0, batchSize);
-                    const rest = prev.slice(batchSize);
-                    return [...rest, ...move];
-                });
-                setIsCuttingRight(false);
-            }, RIGHT_DURATION);
-
-            const centerTimer = window.setTimeout(() => {
-                setCuttingIds([]);
-            }, RIGHT_DURATION + LEFT_DURATION);
-
-            cutTimeoutsRef.current.push(rightTimer, centerTimer);
+        const tick = () => {
+            const diff = Math.ceil(((state.startTime || 0) - Date.now()) / 1000);
+            setCountdown(diff > 0 ? diff : 0);
+            setRemainingMs((state.startTime || 0) - Date.now());
         };
 
-        runCut();
-        cutIntervalRef.current = window.setInterval(runCut, CUT_INTERVAL);
+        tick();
+        const id = window.setInterval(tick, 200);
+        return () => window.clearInterval(id);
+    }, [normalizedPhase, state.startTime]);
 
-        return () => {
-            if (cutIntervalRef.current) {
-                window.clearInterval(cutIntervalRef.current);
-                cutIntervalRef.current = null;
+    const handleGrab = (packetIndex: number) => {
+        if (!socket) return;
+        if (normalizedPhase !== 'GAMING') return;
+        if (pendingIndex !== null) return;
+
+        const alreadyTaken = packets.some((p) => p.ownerId && selfUserId !== undefined && selfUserId !== null && String(p.ownerId) === String(selfUserId));
+        if (alreadyTaken) {
+            Toast.show({ icon: 'fail', content: '每人限搶一包' });
+            return;
+        }
+
+        setPendingIndex(packetIndex);
+        socket.emit(
+            'MINIGAME_ACTION',
+            { type: 'GRAB_PACKET', packetIndex },
+            (resp: any) => {
+                setPendingIndex(null);
+                if (resp?.status === 'SUCCESS') {
+                    Toast.show({ icon: 'success', content: resp?.prize?.name ? `搶到：${resp.prize.name}` : '搶到紅包！' });
+                    setPackets((prev) =>
+                        prev.map((p) => (p.index === packetIndex ? { ...p, isTaken: true, ownerId: resp?.prize?.ownerId || (selfUserId ? String(selfUserId) : p.ownerId) } : p))
+                    );
+                    setOrderedPackets((prev) =>
+                        prev.map((p) => (p.index === packetIndex ? { ...p, isTaken: true, ownerId: resp?.prize?.ownerId || (selfUserId ? String(selfUserId) : p.ownerId) } : p))
+                    );
+                } else {
+                    Toast.show({ icon: 'fail', content: resp?.message || '手慢了' });
+                }
             }
-            cutTimeoutsRef.current.forEach((id) => window.clearTimeout(id));
-            cutTimeoutsRef.current = [];
-            setCuttingIds([]);
-            setIsCuttingRight(false);
-        };
-    }, [normalizedPhase, isGathered]);
+        );
+    };
 
     const resolveAvatar = (avatar?: string | null) => {
         if (!avatar) return '/avatars/default.png';
@@ -145,28 +184,38 @@ const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice
 
     const renderPackets = (phaseClass: string) => {
         const isShuffling = phaseClass === 'shuffling';
-        const renderList = isShuffling ? shuffledPackets : packets;
+        const renderList = orderedPackets;
+        const isGatherPhase = isShuffling && (isCentering || !isGathered);
 
         return (
-            <div className={`mini-packet-grid ${phaseClass}`}>
+            <div className={`mini-packet-grid ${phaseClass}`} style={{ position: 'relative' }}>
                 {renderList.map((p: Packet, idx: number) => {
                     const isCutting = isShuffling && cuttingIds.includes(p.index);
+                    const ownedBySelf = p.ownerId && selfUserId !== undefined && selfUserId !== null && String(p.ownerId) === String(selfUserId);
+                    const status: RedPacketStatus = p.isTaken ? (ownedBySelf ? 'ACTIVE' : 'TAKEN') : pendingIndex === p.index ? 'ACTIVE' : 'NORMAL';
+                    const ownerName = p.ownerId
+                        ? ownedBySelf
+                            ? '你'
+                            : participantList.find((pt) => String(pt.userId) === String(p.ownerId))?.displayName
+                        : undefined;
+
                     return (
                         <motion.div
-                            key={p.index}
+                            key={`packet-${p.index}`}
                             layout
+                            layoutId={`packet-${p.index}`}
                             initial={false}
                             className='packet-item'
                             style={{
                                 position: isShuffling ? 'absolute' : 'relative',
-                                zIndex: isShuffling ? idx : undefined,
+                                top: isShuffling ? '50%' : 'auto',
+                                left: isShuffling ? '50%' : 'auto',
+                                zIndex: isShuffling ? (isCutting ? renderList.length + 1 : renderList.length - idx) : undefined,
                             }}
                             animate={
                                 isShuffling
                                     ? {
-                                          top: `${PACKET_CENTER_Y}%`,
-                                          left: `${PACKET_CENTER_X}%`,
-                                          x: isCutting && isCuttingRight ? 60 : -PACKET_WIDTH / 2,
+                                          x: isCutting ? CUT_SHIFT : -PACKET_WIDTH / 2,
                                           y: -PACKET_HEIGHT / 2,
                                       }
                                     : {
@@ -174,9 +223,25 @@ const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice
                                           y: 0,
                                       }
                             }
-                            transition={{ duration: isShuffling ? (isCutting ? 0.3 : isGathered ? 0.3 : 1.0) : 0.35, ease: 'easeInOut' }}
+                            transition={{
+                                duration: isShuffling
+                                    ? isCutting
+                                        ? 0.35
+                                        : isGatherPhase
+                                        ? MOVE_CENTER_DURATION
+                                        : 0.35
+                                    : phaseClass === 'idle'
+                                    ? 0
+                                    : DEAL_RETURN_DURATION,
+                                ease: 'easeInOut',
+                            }}
                         >
-                            <img src='/images/red-packet.webp' alt={p.name} className='packet-img' />
+                            <RedPacket
+                                index={p.index}
+                                status={status}
+                                ownerName={ownerName}
+                                onClick={status === 'NORMAL' && normalizedPhase === 'GAMING' ? () => handleGrab(p.index) : undefined}
+                            />
                         </motion.div>
                     );
                 })}
@@ -234,8 +299,11 @@ const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice
         </div>
     );
 
-    if (normalizedPhase === 'IDLE' || normalizedPhase === 'SHUFFLE') {
+    const isGridPhase = ['IDLE', 'SHUFFLE', 'COUNTDOWN', 'GAMING'].includes(normalizedPhase);
+
+    if (isGridPhase) {
         const isShuffling = normalizedPhase === 'SHUFFLE';
+        const phaseClass = isShuffling ? 'shuffling' : normalizedPhase === 'COUNTDOWN' ? 'countdown' : 'idle';
         return (
             <div
                 style={{
@@ -271,12 +339,35 @@ const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice
                         </div>
                     </div>
 
-                    <div style={{ flex: 1, minHeight: 220 }}>
+                    <div style={{ flex: 1, minHeight: 220, position: 'relative' }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <div style={{ fontSize: 20, fontWeight: 900 }}>{isShuffling ? '洗牌中...' : '準備搶紅包'}</div>
+                            <div style={{ fontSize: 20, fontWeight: 900 }}>
+                                {isShuffling ? '洗牌中...' : normalizedPhase === 'COUNTDOWN' ? '準備開搶' : normalizedPhase === 'GAMING' ? '開搶中！' : '準備搶紅包'}
+                            </div>
                             <div style={{ opacity: 0.8, fontSize: 12 }}>紅包數：{packets.length}</div>
                         </div>
-                        {renderPackets(isShuffling ? 'shuffling' : 'idle')}
+                        {renderPackets(phaseClass)}
+                        {normalizedPhase === 'COUNTDOWN' && (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#fff',
+                                    fontSize: 72,
+                                    fontWeight: 900,
+                                    background: 'rgba(0,0,0,0.35)',
+                                }}
+                            >
+                                {remainingMs > ANIMATION_DURATION
+                                    ? '準備開搶'
+                                    : countdown > 0
+                                    ? countdown
+                                    : '開搶！'}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

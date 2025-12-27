@@ -90,6 +90,17 @@ const DisplayPage: React.FC = () => {
             );
         });
 
+        s.on('MINIGAME_EVENT', (evt: any) => {
+            if (!evt || evt.type !== 'PACKET_TAKEN') return;
+            setMiniGame((prev) => {
+                if (!prev || prev.gameType !== 'RED_ENVELOPE') return prev;
+                const updatedPackets = (prev.data?.packets || []).map((p: any) =>
+                    p.index === evt.index ? { ...p, isTaken: true, ownerId: evt.ownerId ?? p.ownerId } : p
+                );
+                return { ...prev, data: { ...prev.data, packets: updatedPackets } };
+            });
+        });
+
         s.on('FULL_SYNC_STATE', (payload: FullSyncPayload) => {
             setStockHistory(payload.price.history);
             setLeaderboard(payload.leaderboard || []);
@@ -146,7 +157,12 @@ const DisplayPage: React.FC = () => {
         return (
             <div
                 style={{
+                    position: 'fixed',
+                    inset: 0,
+                    width: '100vw',
                     minHeight: '100vh',
+                    boxSizing: 'border-box',
+                    overflow: 'auto',
                     backgroundImage: `linear-gradient(135deg, rgba(11,18,36,0.72) 0%, rgba(15,23,42,0.72) 100%), url('/background/idle.webp')`,
                     backgroundSize: 'cover',
                     backgroundRepeat: 'no-repeat',
@@ -157,7 +173,7 @@ const DisplayPage: React.FC = () => {
                     justifyContent: 'center',
                 }}
             >
-                <div style={{ maxWidth: 900, width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ maxWidth: 1100, width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div
                         style={{
                             background: 'rgba(255,255,255,0.04)',

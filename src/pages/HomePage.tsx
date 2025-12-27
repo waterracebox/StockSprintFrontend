@@ -359,6 +359,18 @@ const HomePage: React.FC = () => {
             });
         });
 
+        newSocket.on('MINIGAME_EVENT', (evt: any) => {
+            if (!evt || evt.type !== 'PACKET_TAKEN') return;
+
+            setMiniGameState((prev) => {
+                if (!prev || prev.gameType !== 'RED_ENVELOPE') return prev;
+                const updatedPackets = (prev.data?.packets || []).map((p: any) =>
+                    p.index === evt.index ? { ...p, isTaken: true, ownerId: evt.ownerId ?? p.ownerId } : p
+                );
+                return { ...prev, data: { ...prev.data, packets: updatedPackets } };
+            });
+        });
+
         // 2. 遊戲狀態更新（每秒廣播）
         newSocket.on('GAME_STATE_UPDATE', (data: GameState) => {
             console.log('[Socket] 遊戲狀態更新:', data);
@@ -614,6 +626,9 @@ const HomePage: React.FC = () => {
             newSocket.off('connect');
             newSocket.off('connect_error');
             newSocket.off('disconnect');
+            newSocket.off('MINIGAME_SYNC');
+            newSocket.off('MINIGAME_PARTICIPANTS');
+            newSocket.off('MINIGAME_EVENT');
             newSocket.off('FULL_SYNC_STATE');
             newSocket.off('GAME_STATE_UPDATE');
             newSocket.off('PRICE_UPDATE');
@@ -1521,6 +1536,8 @@ const HomePage: React.FC = () => {
                 totalAssets={totalAssets}
                 currentPrice={currentPrice}
                 onCollapse={() => setIsMiniGameOverlayVisible(false)}
+                socket={socket}
+                selfUserId={user?.id || null}
             />
 
             {/* 隱藏影片：在不支援 WakeLock 時維持螢幕喚醒 */}
