@@ -1,30 +1,34 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import RedPacket, { type RedPacketStatus } from './RedPacket';
 import type { MiniGameSyncState } from '../../containers/MiniGameOverlay';
+import type { Socket } from 'socket.io-client';
 
 type Participant = { userId: number; displayName: string; avatar: string | null };
-type Packet = { index: number; name?: string; isTaken?: boolean; ownerId?: string | null; type?: string; prizeValue?: number };
+type Packet = { index: number; name?: string; isTaken?: boolean; ownerId?: string | null; type?: string; prizeValue?: number; isScratched?: boolean; displayOrder?: number };
 
-const PACKET_WIDTH = 60;
-const PACKET_HEIGHT = 78;
-const RIGHT_DURATION = 200;
-const LEFT_DURATION = 200;
-const CUT_SHIFT = 60;
-const CUT_INTERVAL = 1500;
-const GATHER_DURATION = 1000;
-const ANIMATION_DURATION = 3000;
-const DEAL_RETURN_DURATION = 0.75;
-const MOVE_CENTER_DURATION = 1.0;
+// ========== 動畫參數配置 ==========
+const PACKET_WIDTH = 60;                // 紅包寬度（px）
+const PACKET_HEIGHT = 78;               // 紅包高度（px）
+const RIGHT_DURATION = 200;             // 切牌向右移動的持續時間（ms）
+const LEFT_DURATION = 200;              // 切牌向左移動的持續時間（ms）
+const CUT_SHIFT = 60;                   // 切牌時的水平偏移距離（px）
+const CUT_INTERVAL = 1500;              // 切牌動作的間隔時間（ms）
+const GATHER_DURATION = 1000;           // 紅包集中到中心的持續時間（ms）
+const ANIMATION_DURATION = 3000;        // 紅包回位動畫持續時間（ms）
+const DEAL_RETURN_DURATION = 0.75;      // 紅包回到 Grid 位置的持續時間（秒）
+const MOVE_CENTER_DURATION = 1.0;       // 紅包移動到中心的持續時間（秒）
 
 interface Props {
     miniGame: MiniGameSyncState;
     participants: Participant[];
+    socket: Socket | null;
 }
 
-const RedEnvelopeDisplayView: React.FC<Props> = ({ miniGame, participants }) => {
+const RedEnvelopeDisplayView: React.FC<Props> = ({ miniGame, participants, socket }) => {
     const normalizedPhase = (miniGame.phase || '').toUpperCase();
     const isShuffling = normalizedPhase === 'SHUFFLE';
+    const isRevealing = normalizedPhase === 'REVEAL';
 
     const [packets, setPackets] = useState<Packet[]>(miniGame.data?.packets || []);
     const [orderedPackets, setOrderedPackets] = useState<Packet[]>(miniGame.data?.packets || []);
@@ -33,6 +37,8 @@ const RedEnvelopeDisplayView: React.FC<Props> = ({ miniGame, participants }) => 
     const [cuttingIds, setCuttingIds] = useState<number[]>([]);
     const [countdown, setCountdown] = useState<number>(0);
     const [remainingMs, setRemainingMs] = useState<number>(0);
+    const [isRevealStarted, setIsRevealStarted] = useState(false);
+    const [currentRevealGroup, setCurrentRevealGroup] = useState<number>(0);
 
     const cutIntervalRef = useRef<number | null>(null);
     const gatherTimeoutRef = useRef<number | null>(null);
@@ -136,6 +142,99 @@ const RedEnvelopeDisplayView: React.FC<Props> = ({ miniGame, participants }) => 
         const id = window.setInterval(tick, 200);
         return () => window.clearInterval(id);
     }, [normalizedPhase, miniGame.startTime]);
+
+    // 【新增】監聽 ALL_SCRATCHED 事件
+    useEffect(() => {
+        if (!isRevealing || !socket) return;
+
+        const handleMiniGameEvent = (evt: any) => {
+            if (evt?.type === 'ALL_SCRATCHED') {
+                console.log('[Display] 收到 ALL_SCRATCHED，開始揭曉動畫');
+                setIsRevealStarted(true);
+            }
+        };
+
+        socket.on('MINIGAME_EVENT', handleMiniGameEvent);
+
+        return () => {
+            socket.off('MINIGAME_EVENT', handleMiniGameEvent);
+        };
+    }, [isRevealing, socket]);
+
+    // 【新增】分組邏輯：依 displayOrder 排序與分組
+    const prizeGroups = useMemo(() => {
+        if (!isRevealStarted) return [];
+        
+        const takenPackets = packets.filter((p) => p.isTaken);
+        if (takenPackets.length === 0) return [];
+
+        // 【DEBUG】顯示每個獎項的 displayOrder
+        console.log('[Display] 所有已搶走的紅包:', takenPackets.map(p => ({
+            index: p.index,
+            name: p.name,
+            displayOrder: p.displayOrder,
+            ownerId: p.ownerId
+        })));
+
+        // 排序：displayOrder 升序（先開頭獎 1，2，3...，最後開安慰獎 0）
+        const sorted = [...takenPackets].sort((a, b) => {
+            const orderA = a.displayOrder ?? 0;
+            const orderB = b.displayOrder ?? 0;
+
+            // 將 0 視為 Infinity（安慰獎最後開）
+            const valueA = orderA === 0 ? Infinity : orderA;
+            const valueB = orderB === 0 ? Infinity : orderB;
+
+            return valueA - valueB; // 升序：1, 2, 3, ..., Infinity(0)
+        });
+
+        console.log('[Display] 排序後的順序:', sorted.map(p => ({
+            name: p.name,
+            displayOrder: p.displayOrder
+        })));
+
+        // 分組：相同 displayOrder 的為一組
+        const groups: Packet[][] = [];
+        let currentGroup: Packet[] = [];
+        let lastOrder: number | null = null;
+
+        sorted.forEach((packet) => {
+            const order = packet.displayOrder ?? 0;
+            if (lastOrder !== null && order !== lastOrder) {
+                groups.push(currentGroup);
+                currentGroup = [];
+            }
+            currentGroup.push(packet);
+            lastOrder = order;
+        });
+
+        if (currentGroup.length > 0) groups.push(currentGroup);
+
+        return groups;
+    }, [packets, isRevealStarted]);
+
+    // 【新增】揭曉動畫序列控制器
+    useEffect(() => {
+        if (!isRevealStarted || prizeGroups.length === 0) return;
+
+        let timer: NodeJS.Timeout;
+        const revealNextGroup = async (groupIndex: number) => {
+            if (groupIndex >= prizeGroups.length) {
+                console.log('[Display] 所有獎項揭曉完畢');
+                return;
+            }
+
+            console.log(`[Display] 揭曉第 ${groupIndex + 1} 組獎項`, prizeGroups[groupIndex]);
+            setCurrentRevealGroup(groupIndex);
+
+            // 等待 3 秒後開下一組
+            timer = setTimeout(() => revealNextGroup(groupIndex + 1), 3000);
+        };
+
+        revealNextGroup(0);
+
+        return () => clearTimeout(timer);
+    }, [isRevealStarted, prizeGroups]);
 
     const resolveAvatar = (avatar?: string | null) => {
         if (!avatar) return '/avatars/default.png';
@@ -264,8 +363,108 @@ const RedEnvelopeDisplayView: React.FC<Props> = ({ miniGame, participants }) => 
                         {remainingMs > ANIMATION_DURATION ? '準備開搶' : countdown > 0 ? countdown : '開搶！'}
                     </div>
                 )}
+                {/* 【新增】揭曉動畫層 */}
+                {isRevealStarted && prizeGroups.length > 0 && (
+                    <div 
+                        id="reveal-animation-container"
+                        style={{ position: 'absolute', inset: 0, zIndex: 100, pointerEvents: 'none' }}
+                    >
+                        {/* 渲染所有已開獎的組（0 到 currentRevealGroup） */}
+                        {prizeGroups.slice(0, currentRevealGroup + 1).flatMap((group, groupIndex) =>
+                            group.map((packet) => (
+                                <PrizePullOut
+                                    key={packet.index}
+                                    packet={packet}
+                                    packetHeight={PACKET_HEIGHT}
+                                    participants={participants}
+                                    shouldAnimate={groupIndex === currentRevealGroup}
+                                />
+                            ))
+                        )}
+                    </div>
+                )}
             </div>
         </div>
+    );
+};
+
+// 【新增】PrizePullOut 子組件
+interface PrizePullOutProps {
+    packet: Packet;
+    packetHeight: number;
+    participants: Participant[];
+    shouldAnimate: boolean; // 【新增】控制是否播放動畫
+}
+
+const PrizePullOut: React.FC<PrizePullOutProps> = ({ packet, packetHeight, participants, shouldAnimate }) => {
+    const owner = participants.find((p) => String(p.userId) === String(packet.ownerId));
+    const ownerName = owner?.displayName || `User${packet.ownerId}`;
+    const [position, setPosition] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+
+    // 使用 useLayoutEffect 確保在渲染前獲取位置
+    useEffect(() => {
+        const packetElement = document.querySelector(`[data-packet-index="${packet.index}"]`);
+        const containerElement = document.querySelector('#reveal-animation-container');
+        
+        if (!packetElement || !containerElement) {
+            console.warn(`[Display] 找不到 packet ${packet.index} 或容器的 DOM 元素`);
+            return;
+        }
+
+        const packetRect = packetElement.getBoundingClientRect();
+        const containerRect = containerElement.getBoundingClientRect();
+        
+        // 計算相對於動畫容器的位置
+        setPosition({
+            left: packetRect.left - containerRect.left,
+            top: packetRect.top - containerRect.top,
+            width: packetRect.width || 60,
+            height: packetRect.height || 78,
+        });
+    }, [packet.index]);
+
+    if (!position) return null;
+
+    return (
+        <motion.div
+            initial={shouldAnimate ? { y: 0, zIndex: 1 } : { y: 0, zIndex: 200 }}
+            animate={
+                shouldAnimate
+                    ? {
+                          y: [0, -(packetHeight + 10), 0], // 上 -> 下 -> 回到原位
+                          zIndex: [1, 200, 200], // 切換到最前面並保持
+                      }
+                    : { y: 0, zIndex: 200 } // 已開獎的直接停留在最終狀態
+            }
+            transition={{
+                duration: shouldAnimate ? 1.0 : 0,
+                times: shouldAnimate ? [0, 0.5, 1] : undefined,
+                ease: 'easeInOut',
+            }}
+            style={{
+                position: 'absolute',
+                left: position.left,
+                top: position.top,
+                width: position.width,
+                height: position.height,
+                backgroundImage: 'url(/images/open-packet-bg-small.webp)',
+                backgroundSize: 'cover',
+                borderRadius: 8,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 12,
+                textAlign: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                zIndex: 200, // 確保最終覆蓋在原紅包上
+            }}
+        >
+            <div>{packet.name}</div>
+            <div style={{ fontSize: 10, opacity: 0.85 }}>{ownerName}</div>
+        </motion.div>
     );
 };
 

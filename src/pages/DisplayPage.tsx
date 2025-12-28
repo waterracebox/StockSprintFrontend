@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { Toast, DotLoading } from 'antd-mobile';
 import { authAPI, type User } from '../services/auth';
 import type { MiniGameSyncState } from '../components/MiniGameOverlay';
@@ -20,6 +20,7 @@ const DisplayPage: React.FC = () => {
     const [leaderboard, setLeaderboard] = useState<LeaderboardItem[]>([]);
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [participants, setParticipants] = useState<{ userId: number; displayName: string; avatar: string | null }[]>([]);
+    const socketRef = useRef<Socket | null>(null);
 
     // 驗證使用者，僅允許員工或管理員瀏覽投影頁
     useEffect(() => {
@@ -62,6 +63,7 @@ const DisplayPage: React.FC = () => {
             auth: { token },
             transports: ['websocket', 'polling'],
         });
+        socketRef.current = s;
 
         s.on('MINIGAME_SYNC', (payload: MiniGameSyncState) => {
             setMiniGame(payload);
@@ -133,7 +135,7 @@ const DisplayPage: React.FC = () => {
     }, [miniGame?.data?.participants]);
 
     const currentPrice = stockHistory.length > 0 ? stockHistory[stockHistory.length - 1].price : 0;
-    const miniGameView = miniGame ? <MiniGameDisplaySwitch miniGame={miniGame} participants={participants} /> : null;
+    const miniGameView = miniGame ? <MiniGameDisplaySwitch miniGame={miniGame} participants={participants} socket={socketRef.current} /> : null;
 
     if (isLoading) {
         return (

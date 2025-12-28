@@ -9,7 +9,7 @@ interface Props {
     onClick?: () => void;
 }
 
-const RedPacket: React.FC<Props> = ({ status, ownerName, onClick }) => {
+const RedPacket: React.FC<Props> = ({ status, ownerName, onClick, index }) => {
     const src =
         status === 'TAKEN'
             ? '/images/red-packet-taken.webp'
@@ -21,6 +21,7 @@ const RedPacket: React.FC<Props> = ({ status, ownerName, onClick }) => {
 
     return (
         <div
+            data-packet-index={index}
             onClick={interactive ? onClick : undefined}
             style={{
                 position: 'relative',

@@ -1,20 +1,22 @@
 import React from 'react';
 import RedEnvelopeDisplayView from '../games/RedEnvelope/RedEnvelopeDisplayView';
 import type { MiniGameSyncState } from './MiniGameOverlay';
+import type { Socket } from 'socket.io-client';
 
 type Participant = { userId: number; displayName: string; avatar: string | null };
 
 interface Props {
     miniGame: MiniGameSyncState | null;
     participants: Participant[];
+    socket: Socket | null;
 }
 
-const MiniGameDisplaySwitch: React.FC<Props> = ({ miniGame, participants }) => {
+const MiniGameDisplaySwitch: React.FC<Props> = ({ miniGame, participants, socket }) => {
     if (!miniGame || miniGame.gameType === 'NONE') return null;
 
     switch (miniGame.gameType) {
         case 'RED_ENVELOPE':
-            return <RedEnvelopeDisplayView miniGame={miniGame} participants={participants} />;
+            return <RedEnvelopeDisplayView miniGame={miniGame} participants={participants} socket={socket} />;
         default:
             return (
                 <div
