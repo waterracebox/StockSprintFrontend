@@ -27,6 +27,7 @@ const RedEnvelopeAdminPanel: React.FC<Props> = ({ status, socket, allowGuest, se
     const isRedEnvelope = status.gameType === 'RED_ENVELOPE';
     const isIdlePhase = status.phase?.toUpperCase() === 'IDLE';
     const isShufflePhase = status.phase?.toUpperCase() === 'SHUFFLE';
+    const isGamingPhase = status.phase?.toUpperCase() === 'GAMING';
 
     const loadItems = async () => {
         try {
@@ -94,6 +95,15 @@ const RedEnvelopeAdminPanel: React.FC<Props> = ({ status, socket, allowGuest, se
         }
         socket.emit('ADMIN_MINIGAME_ACTION', { type: 'START_GRAB' });
         Toast.show({ icon: 'success', content: '已送出開搶指令' });
+    };
+
+    const handleStartReveal = () => {
+        if (!socket) {
+            Toast.show({ icon: 'fail', content: '尚未連線，請稍後重試' });
+            return;
+        }
+        socket.emit('ADMIN_MINIGAME_ACTION', { type: 'REVEAL_RESULT' });
+        Toast.show({ icon: 'success', content: '已送出揭曉指令' });
     };
 
     const handleOpenCreate = () => {
@@ -272,6 +282,14 @@ const RedEnvelopeAdminPanel: React.FC<Props> = ({ status, socket, allowGuest, se
                         style={{ width: 230, maxWidth: '100%' }}
                     >
                         開始搶紅包
+                    </Button>
+                    <Button
+                        color='primary'
+                        onClick={handleStartReveal}
+                        disabled={!isRedEnvelope || !isGamingPhase}
+                        style={{ width: 230, maxWidth: '100%' }}
+                    >
+                        揭曉結果
                     </Button>
                 </div>
             </Space>

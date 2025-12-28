@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Toast } from 'antd-mobile';
 import type { Socket } from 'socket.io-client';
 import RedPacket, { type RedPacketStatus } from './RedPacket';
 import type { MiniGameSyncState } from '../../containers/MiniGameOverlay';
+import ScratchCard from './ScratchCard';
 
 const PACKET_WIDTH = 60;
 const PACKET_HEIGHT = 78;
@@ -39,10 +40,17 @@ const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice
     const [countdown, setCountdown] = useState<number>(0);
     const [pendingIndex, setPendingIndex] = useState<number | null>(null);
     const [remainingMs, setRemainingMs] = useState<number>(0);
+    const [showScratchCard, setShowScratchCard] = useState(false);
+    const [showLoserMessage, setShowLoserMessage] = useState(false);
+    const [revealPacketVisible, setRevealPacketVisible] = useState(false);
     const cutIntervalRef = useRef<number | null>(null);
     const gatherTimeoutRef = useRef<number | null>(null);
     const cutTimeoutsRef = useRef<number[]>([]);
     const orderedRef = useRef<Packet[]>(orderedPackets);
+
+    const myPacket = packets.find(
+        (p) => p.ownerId && selfUserId !== undefined && selfUserId !== null && String(p.ownerId) === String(selfUserId)
+    );
 
     const clearCutTimers = useCallback(() => {
         if (cutIntervalRef.current) {
@@ -142,6 +150,28 @@ const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice
         const id = window.setInterval(tick, 200);
         return () => window.clearInterval(id);
     }, [normalizedPhase, state.startTime]);
+
+    useEffect(() => {
+        if (normalizedPhase === 'REVEAL') {
+            setShowScratchCard(false);
+            setShowLoserMessage(!myPacket);
+            setRevealPacketVisible(!!myPacket);
+
+            if (myPacket) {
+                const exitTimer = window.setTimeout(() => setRevealPacketVisible(false), 50);
+                const cardTimer = window.setTimeout(() => setShowScratchCard(true), 800);
+                return () => {
+                    window.clearTimeout(exitTimer);
+                    window.clearTimeout(cardTimer);
+                };
+            }
+            return;
+        }
+
+        setShowScratchCard(false);
+        setShowLoserMessage(false);
+        setRevealPacketVisible(false);
+    }, [normalizedPhase, myPacket]);
 
     const handleGrab = (packetIndex: number) => {
         if (!socket) return;
@@ -300,6 +330,83 @@ const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice
     );
 
     const isGridPhase = ['IDLE', 'SHUFFLE', 'COUNTDOWN', 'GAMING'].includes(normalizedPhase);
+
+    if (normalizedPhase === 'REVEAL') {
+        const prizeName = myPacket?.name || '神秘獎品';
+        const prizeValue = myPacket?.prizeValue;
+        const prizeType = (myPacket?.type as 'PHYSICAL' | 'CASH' | undefined) || 'PHYSICAL';
+
+        return (
+            <div
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 9999,
+                    backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.78) 0%, rgba(10,10,10,0.75) 100%), url('/background/idle.webp')`,
+                    backgroundSize: 'cover',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    color: '#fff',
+                }}
+            >
+                {header}
+                {miniStatusBar}
+                <div
+                    style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        position: 'relative',
+                        padding: 24,
+                    }}
+                >
+                    <AnimatePresence>
+                        {revealPacketVisible && myPacket && (
+                            <motion.div
+                                key={`reveal-packet-${myPacket.index}`}
+                                initial={{ y: 0, opacity: 1 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: '100vh', opacity: 0 }}
+                                transition={{ duration: 0.5, ease: 'easeInOut' }}
+                                style={{ width: 120 }}
+                            >
+                                <RedPacket status='ACTIVE' index={myPacket.index} ownerName='你' />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    <AnimatePresence>
+                        {showScratchCard && (
+                            <motion.div
+                                key='scratch-card'
+                                initial={{ y: '100vh', opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                exit={{ y: '100vh', opacity: 0 }}
+                                transition={{ duration: 0.5, ease: 'easeInOut' }}
+                            >
+                                <ScratchCard prizeName={prizeName} prizeValue={prizeValue} type={prizeType} />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {!showScratchCard && !revealPacketVisible && showLoserMessage && (
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.4 }}
+                            style={{ fontSize: 22, fontWeight: 800, textAlign: 'center', padding: 12 }}
+                        >
+                            下次再接再厲 (Better luck next time!)
+                        </motion.div>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     if (isGridPhase) {
         const isShuffling = normalizedPhase === 'SHUFFLE';
