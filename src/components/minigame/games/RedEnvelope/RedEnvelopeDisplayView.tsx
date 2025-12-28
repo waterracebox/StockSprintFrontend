@@ -217,7 +217,7 @@ const RedEnvelopeDisplayView: React.FC<Props> = ({ miniGame, participants, socke
     useEffect(() => {
         if (!isRevealStarted || prizeGroups.length === 0) return;
 
-        let timer: NodeJS.Timeout;
+        let timer: number;
         const revealNextGroup = async (groupIndex: number) => {
             if (groupIndex >= prizeGroups.length) {
                 console.log('[Display] 所有獎項揭曉完畢');
@@ -228,7 +228,7 @@ const RedEnvelopeDisplayView: React.FC<Props> = ({ miniGame, participants, socke
             setCurrentRevealGroup(groupIndex);
 
             // 等待 3 秒後開下一組
-            timer = setTimeout(() => revealNextGroup(groupIndex + 1), 3000);
+            timer = window.setTimeout(() => revealNextGroup(groupIndex + 1), 3000);
         };
 
         revealNextGroup(0);
