@@ -1178,55 +1178,8 @@ const HomePage: React.FC = () => {
 
                     {/* 選單選項 */}
                     <div style={{ marginTop: '20px' }}>
-                        {/* 更改頭像 */}
-                        <div 
-                            style={{
-                                padding: '16px 12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                cursor: 'pointer',
-                                borderRadius: '8px',
-                                transition: 'background-color 0.2s',
-                                marginBottom: 8
-                            }}
-                            onClick={() => {
-                                setAccountIsEmployee(!!user?.isEmployee);
-                                setShowUserMenu(true);
-                                openModalWithHash('#account-settings', setShowAccountSettings);
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                            <span style={{ fontSize: '15px' }}>帳號設定</span>
-                            <RightOutline fontSize={16} color='#999' />
-                        </div>
-
-                        {/* 更改頭像 */}
-                        <div 
-                            style={{
-                                padding: '16px 12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                cursor: 'pointer',
-                                borderRadius: '8px',
-                                transition: 'background-color 0.2s'
-                            }}
-                            onClick={() => {
-                                setSelectedAvatar(user?.avatar || '');
-                                setShowUserMenu(true);
-                                openModalWithHash('#avatar-selector', setShowAvatarSelector);
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                            <span style={{ fontSize: '15px' }}>更改頭像</span>
-                            <RightOutline fontSize={16} color='#999' />
-                        </div>
-
-                        {/* 遊戲設定（僅 Admin 可見） */}
-                        {user?.role === 'ADMIN' && (
+                        <Space direction='vertical' block style={{ '--gap': '8px' }}>
+                            {/* 帳號設定 */}
                             <div 
                                 style={{
                                     padding: '16px 12px',
@@ -1238,56 +1191,104 @@ const HomePage: React.FC = () => {
                                     transition: 'background-color 0.2s'
                                 }}
                                 onClick={() => {
-                                    setShowUserMenu(false);
-                                    navigate('/admin');
+                                    setAccountIsEmployee(!!user?.isEmployee);
+                                    setShowUserMenu(true);
+                                    openModalWithHash('#account-settings', setShowAccountSettings);
                                 }}
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                             >
-                                <span style={{ fontSize: '15px' }}>遊戲設定</span>
+                                <span style={{ fontSize: '15px' }}>帳號設定</span>
                                 <RightOutline fontSize={16} color='#999' />
                             </div>
-                        )}
 
-                        {/* 登出 */}
-                        <div 
-                            style={{
-                                padding: '16px 12px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                cursor: 'pointer',
-                                borderRadius: '8px',
-                                transition: 'background-color 0.2s',
-                                color: '#ff3141'
-                            }}
-                            onClick={() => {
-                                Dialog.confirm({
-                                    content: '確定要登出嗎？',
-                                    confirmText: '登出',
-                                    cancelText: '取消',
-                                    onConfirm: () => {
-                                        // 先關閉 Modal
+                            {/* 更改頭像 */}
+                            <div 
+                                style={{
+                                    padding: '16px 12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    cursor: 'pointer',
+                                    borderRadius: '8px',
+                                    transition: 'background-color 0.2s'
+                                }}
+                                onClick={() => {
+                                    setSelectedAvatar(user?.avatar || '');
+                                    setShowUserMenu(true);
+                                    openModalWithHash('#avatar-selector', setShowAvatarSelector);
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                <span style={{ fontSize: '15px' }}>更改頭像</span>
+                                <RightOutline fontSize={16} color='#999' />
+                            </div>
+
+                            {/* 遊戲設定（僅 Admin 可見） */}
+                            {user?.role === 'ADMIN' && (
+                                <div 
+                                    style={{
+                                        padding: '16px 12px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        cursor: 'pointer',
+                                        borderRadius: '8px',
+                                        transition: 'background-color 0.2s'
+                                    }}
+                                    onClick={() => {
                                         setShowUserMenu(false);
-                                        
-                                        // 清除所有 hash
-                                        if (window.location.hash) {
-                                            window.history.replaceState(null, '', window.location.pathname);
+                                        navigate('/admin');
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                    <span style={{ fontSize: '15px' }}>遊戲設定</span>
+                                    <RightOutline fontSize={16} color='#999' />
+                                </div>
+                            )}
+
+                            {/* 登出 */}
+                            <div 
+                                style={{
+                                    padding: '16px 12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    cursor: 'pointer',
+                                    borderRadius: '8px',
+                                    transition: 'background-color 0.2s',
+                                    color: '#ff3141'
+                                }}
+                                onClick={() => {
+                                    Dialog.confirm({
+                                        content: '確定要登出嗎？',
+                                        confirmText: '登出',
+                                        cancelText: '取消',
+                                        onConfirm: () => {
+                                            // 先關閉 Modal
+                                            setShowUserMenu(false);
+                                            
+                                            // 清除所有 hash
+                                            if (window.location.hash) {
+                                                window.history.replaceState(null, '', window.location.pathname);
+                                            }
+                                            
+                                            // 延遲執行登出，確保 modal 完全關閉
+                                            setTimeout(() => {
+                                                handleLogout();
+                                            }, 100);
                                         }
-                                        
-                                        // 延遲執行登出，確保 modal 完全關閉
-                                        setTimeout(() => {
-                                            handleLogout();
-                                        }, 100);
-                                    }
-                                });
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fff1f0'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                            <span style={{ fontSize: '15px' }}>登出</span>
-                            <RightOutline fontSize={16} />
-                        </div>
+                                    });
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fff1f0'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                                <span style={{ fontSize: '15px' }}>登出</span>
+                                <RightOutline fontSize={16} />
+                            </div>
+                        </Space>
                     </div>
                 </div>
             </Popup>
