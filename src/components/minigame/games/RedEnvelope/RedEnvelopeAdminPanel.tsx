@@ -236,24 +236,30 @@ const RedEnvelopeAdminPanel: React.FC<Props> = ({ status, socket, allowGuest, se
                     }
                 >
                     <List>
-                        {items.map((it) => (
-                            <List.Item
-                                key={it.id}
-                                description={`數量: ${it.amount} | 類型: ${it.type}${it.type === 'CASH' ? ` | 現金: ${it.prizeValue}` : ''}`}
-                                extra={
-                                    <Space>
-                                        <Button size='mini' color='primary' fill='outline' onClick={() => handleOpenEdit(it)} disabled={isRedEnvelope}>
-                                            編輯
-                                        </Button>
-                                        <Button size='mini' color='danger' fill='outline' onClick={() => handleDelete(it.id)} disabled={isRedEnvelope}>
-                                            刪除
-                                        </Button>
-                                    </Space>
-                                }
-                            >
-                                {it.name}
-                            </List.Item>
-                        ))}
+                        {items.map((it) => {
+                            const typeLabel = it.type === 'CASH' ? '遊戲現金' : '實體';
+                            const displayOrderText = it.displayOrder !== undefined && it.displayOrder !== null 
+                                ? ` | 開獎順序: ${it.displayOrder === 0 ? '最後(安慰獎)' : it.displayOrder}`
+                                : '';
+                            return (
+                                <List.Item
+                                    key={it.id}
+                                    description={`數量: ${it.amount} | 類型: ${typeLabel}${it.type === 'CASH' ? ` | 現金: ${it.prizeValue}` : ''}${displayOrderText}`}
+                                    extra={
+                                        <Space>
+                                            <Button size='mini' color='primary' fill='outline' onClick={() => handleOpenEdit(it)} disabled={isRedEnvelope}>
+                                                編輯
+                                            </Button>
+                                            <Button size='mini' color='danger' fill='outline' onClick={() => handleDelete(it.id)} disabled={isRedEnvelope}>
+                                                刪除
+                                            </Button>
+                                        </Space>
+                                    }
+                                >
+                                    {it.name}
+                                </List.Item>
+                            );
+                        })}
                         {items.length === 0 && <List.Item>尚無獎項，請新增。</List.Item>}
                     </List>
                 </Card>
