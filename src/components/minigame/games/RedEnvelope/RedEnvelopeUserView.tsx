@@ -388,7 +388,7 @@ const RedEnvelopeUserView: React.FC<Props> = ({ state, totalAssets, currentPrice
                                 exit={{ y: '100vh', opacity: 0 }}
                                 transition={{ duration: 0.5, ease: 'easeInOut' }}
                             >
-                                <ScratchCard prizeName={prizeName} prizeValue={prizeValue} type={prizeType} />
+                                <ScratchCard prizeName={prizeName} prizeValue={prizeValue} type={prizeType} socket={socket} />
                             </motion.div>
                         )}
                     </AnimatePresence>
