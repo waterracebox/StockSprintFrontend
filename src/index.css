@@ -25,12 +25,13 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
+  padding: 0;
+  width: 100%;
   min-width: 320px;
   min-height: 100vh;
   background-color: #ffffff !important;
   color: #213547 !important;
+  box-sizing: border-box;
 }
 
 h1 {
@@ -56,4 +57,18 @@ button:hover {
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* 確保 root 元素滿版 */
+#root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* 確保所有元素使用 border-box */
+* {
+  box-sizing: border-box;
 }

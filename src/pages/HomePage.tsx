@@ -737,7 +737,11 @@ const HomePage: React.FC = () => {
             minHeight: '100vh', 
             display: 'flex', 
             flexDirection: 'column',
-            backgroundColor: '#f5f5f5'
+            backgroundColor: '#f5f5f5',
+            width: '100%',
+            margin: 0,
+            padding: 0,
+            boxSizing: 'border-box'
         }}>
             {/* ==================== (0) 頂部資訊列 ==================== */}
             <div style={{ 

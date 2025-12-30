@@ -106,7 +106,7 @@ const AdminPage: React.FC = () => {
     }
 
     return (
-        <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', maxWidth: '100vw', overflow: 'hidden' }}>
+        <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5', width: '100%', margin: 0, padding: 0 }}>
             {/* 頂部導覽列 */}
             <NavBar
                 onBack={() => navigate('/home')}
@@ -125,7 +125,7 @@ const AdminPage: React.FC = () => {
                             color='primary'
                             fill='none'
                             style={{ fontSize: 12, color: '#8ec5ff', textDecoration: 'underline', padding: '0 6px', height: 'auto' }}
-                            onClick={() => navigate('/display')}
+                            onClick={() => window.open('/display', '_blank')}
                         >
                             投影頁
                         </Button>

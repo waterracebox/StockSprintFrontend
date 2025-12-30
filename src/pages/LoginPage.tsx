@@ -60,7 +60,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ isAdmin = false }) => {
     };
 
     return (
-        <div style={{ padding: '20px', maxWidth: '400px', margin: '50px auto' }}>
+        <div style={{ padding: '20px', width: '100%', maxWidth: '500px', margin: '50px auto', boxSizing: 'border-box' }}>
             {contextHolder}
             {/* 標題 */}
             <h1 style={{ textAlign: 'center', marginBottom: '30px' }}>
