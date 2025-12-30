@@ -28,6 +28,7 @@ const RedEnvelopeAdminPanel: React.FC<Props> = ({ status, socket, allowGuest, se
     const isIdlePhase = status.phase?.toUpperCase() === 'IDLE';
     const isShufflePhase = status.phase?.toUpperCase() === 'SHUFFLE';
     const isGamingPhase = status.phase?.toUpperCase() === 'GAMING';
+    const isRevealPhase = status.phase?.toUpperCase() === 'REVEAL';
 
     const loadItems = async () => {
         try {
@@ -104,6 +105,23 @@ const RedEnvelopeAdminPanel: React.FC<Props> = ({ status, socket, allowGuest, se
         }
         socket.emit('ADMIN_MINIGAME_ACTION', { type: 'REVEAL_RESULT' });
         Toast.show({ icon: 'success', content: '已送出揭曉指令' });
+    };
+
+    const handleForceReveal = async () => {
+        if (!socket) {
+            Toast.show({ icon: 'fail', content: '尚未連線，請稍後重試' });
+            return;
+        }
+
+        const confirmed = await Dialog.confirm({
+            content: '確定要強制揭曉嗎？這將會忽略尚未刮完的玩家，直接開始大螢幕動畫。',
+            closeOnMaskClick: false,
+        });
+
+        if (!confirmed) return;
+
+        socket.emit('ADMIN_MINIGAME_ACTION', { type: 'FORCE_REVEAL' });
+        Toast.show({ icon: 'success', content: '已送出強制揭曉指令' });
     };
 
     const handleOpenCreate = () => {
@@ -296,6 +314,14 @@ const RedEnvelopeAdminPanel: React.FC<Props> = ({ status, socket, allowGuest, se
                         style={{ width: 230, maxWidth: '100%' }}
                     >
                         揭曉結果
+                    </Button>
+                    <Button
+                        color='danger'
+                        onClick={handleForceReveal}
+                        disabled={!isRedEnvelope || !isRevealPhase}
+                        style={{ width: 230, maxWidth: '100%' }}
+                    >
+                        強制揭曉
                     </Button>
                 </div>
             </Space>
