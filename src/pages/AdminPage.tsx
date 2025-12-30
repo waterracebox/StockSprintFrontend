@@ -125,7 +125,7 @@ const AdminPage: React.FC = () => {
                             color='primary'
                             fill='none'
                             style={{ fontSize: 12, color: '#8ec5ff', textDecoration: 'underline', padding: '0 6px', height: 'auto' }}
-                            onClick={() => window.open('/display', '_blank')}
+                            onClick={() => { window.open('/display', '_blank'); }}
                         >
                             投影頁
                         </Button>
