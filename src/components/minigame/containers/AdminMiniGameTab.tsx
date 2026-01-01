@@ -15,6 +15,7 @@ const AdminMiniGameTab: React.FC = () => {
         data: {},
     });
     const [allowGuest, setAllowGuest] = useState<boolean>(false);
+    const [activeTab, setActiveTab] = useState<string>(() => localStorage.getItem('admin-minigame-subtab') || 'red-envelope');
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -96,7 +97,13 @@ const AdminMiniGameTab: React.FC = () => {
                 </Space>
             </Card>
 
-            <Tabs>
+            <Tabs
+                activeKey={activeTab}
+                onChange={(key) => {
+                    setActiveTab(key);
+                    localStorage.setItem('admin-minigame-subtab', key);
+                }}
+            >
                 <Tabs.Tab title='紅包' key='red-envelope'>
                     <RedEnvelopeAdminPanel
                         status={status}
