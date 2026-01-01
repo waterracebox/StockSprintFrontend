@@ -15,6 +15,45 @@ const QuizDisplayView: React.FC<Props> = ({ miniGame }) => {
         return null;
     }
 
+    // 【新增】PREPARE 階段：大螢幕顯示題目
+    if (normalizedPhase === 'PREPARE') {
+        const questionTitle = miniGame.data?.question?.title || '載入中...';
+
+        return (
+            <div
+                style={{
+                    minHeight: '100vh',
+                    width: '100vw',
+                    backgroundImage: `linear-gradient(135deg, rgba(75,0,130,0.65) 0%, rgba(25,25,112,0.65) 100%), url('/background/quiz.webp')`,
+                    backgroundSize: 'cover',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    color: '#fff',
+                    padding: 32,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 24,
+                    boxSizing: 'border-box',
+                }}
+            >
+                <h1 style={{ margin: 0, fontSize: 64, fontWeight: 900 }}>🧠 機智問答</h1>
+                <div 
+                    style={{ 
+                        fontSize: 36, 
+                        textAlign: 'center',
+                        animation: 'fadeIn 0.8s ease-in',
+                        lineHeight: 1.6,
+                        maxWidth: '80%',
+                    }}
+                >
+                    {questionTitle}
+                </div>
+            </div>
+        );
+    }
+
     if (normalizedPhase !== 'IDLE') {
         return (
             <div

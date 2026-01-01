@@ -15,7 +15,12 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
     const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null);
     const [form] = Form.useForm<QuizPayload>();
 
+    // 【新增】本地選擇的題目 ID (受控於 status.data.nextCandidateId)
+    const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
+
     const isQuiz = status.gameType === 'QUIZ';
+    const isIdlePhase = status.phase?.toUpperCase() === 'IDLE';
+    const isPreparePhase = status.phase?.toUpperCase() === 'PREPARE';
 
     const loadQuestions = async () => {
         try {
@@ -29,6 +34,35 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
     useEffect(() => {
         loadQuestions();
     }, []);
+
+    // 【新增】同步 Dropdown 值與 gameState
+    useEffect(() => {
+        const candidateId = status.data?.nextCandidateId as number | undefined;
+        if (candidateId !== undefined && candidateId !== null) {
+            setSelectedQuestionId(candidateId);
+        }
+    }, [status.data?.nextCandidateId]);
+
+    // 【新增】發布題目邏輯
+    const handlePublishQuestion = () => {
+        if (!socket) {
+            Toast.show({ icon: 'fail', content: '尚未連線，請稍後重試' });
+            return;
+        }
+
+        if (selectedQuestionId === null) {
+            Toast.show({ icon: 'fail', content: '請先選擇題目' });
+            return;
+        }
+
+        socket.emit('ADMIN_MINIGAME_ACTION', { 
+            type: 'INIT_GAME', 
+            gameType: 'QUIZ',
+            questionId: selectedQuestionId 
+        });
+        
+        Toast.show({ icon: 'success', content: '已發布題目' });
+    };
 
     const handleInitGame = () => {
         if (!socket) {
@@ -112,6 +146,74 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
     return (
         <div style={{ padding: '16px 0' }}>
             <Space direction='vertical' block>
+                {/* 【優化】選題與發布區 - 固定在頂部 */}
+                {isQuiz && (isIdlePhase || isPreparePhase) && questions.length > 0 && (
+                    <Card title='📢 發布題目' style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#fff' }}>
+                        <Space direction='vertical' block>
+                            <div style={{ 
+                                padding: '8px 12px', 
+                                background: '#f5f5f5', 
+                                borderRadius: 8,
+                                fontSize: 14,
+                                color: '#666'
+                            }}>
+                                <strong>目前選擇：</strong>
+                                {selectedQuestionId 
+                                    ? `Q${selectedQuestionId}: ${questions.find(q => q.id === selectedQuestionId)?.question.substring(0, 40) || ''}...`
+                                    : '尚未選擇'
+                                }
+                            </div>
+                            <Button 
+                                color='primary' 
+                                onClick={() => {
+                                    // 彈出選題 Popup
+                                    Dialog.show({
+                                        title: '選擇題目',
+                                        content: (
+                                            <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                                                <List>
+                                                    {questions.map((q) => (
+                                                        <List.Item
+                                                            key={q.id}
+                                                            clickable
+                                                            onClick={() => {
+                                                                setSelectedQuestionId(q.id);
+                                                                Dialog.clear();
+                                                            }}
+                                                            style={{ 
+                                                                background: selectedQuestionId === q.id ? '#e6f7ff' : 'transparent',
+                                                                borderLeft: selectedQuestionId === q.id ? '3px solid #1677ff' : 'none'
+                                                            }}
+                                                        >
+                                                            <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>Q{q.id}</div>
+                                                            <div>{q.question}</div>
+                                                        </List.Item>
+                                                    ))}
+                                                </List>
+                                            </div>
+                                        ),
+                                        closeOnAction: true,
+                                        actions: [{ key: 'close', text: '取消' }],
+                                    });
+                                }}
+                                block
+                            >
+                                🔍 選擇題目
+                            </Button>
+                            <Button 
+                                color='success' 
+                                onClick={handlePublishQuestion}
+                                disabled={selectedQuestionId === null}
+                                block
+                                size='large'
+                            >
+                                📢 發布題目
+                            </Button>
+                        </Space>
+                    </Card>
+                )}
+
+                {/* 【優化】題庫列表 - 限制高度 */}
                 <Card
                     title='題庫列表'
                     extra={
@@ -120,37 +222,41 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
                         </Button>
                     }
                 >
-                    <List>
-                        {questions.map((q) => (
-                            <List.Item
-                                key={q.id}
-                                description={`答案: ${q.correctAnswer} | 時間: ${q.duration}秒`}
-                                extra={
-                                    <Space direction='vertical' style={{ gap: 4 }}>
-                                        <Button size='mini' color='primary' fill='outline' onClick={() => handleOpenEdit(q)} disabled={isQuiz}>
-                                            編輯
-                                        </Button>
-                                        <Button size='mini' color='danger' fill='outline' onClick={() => handleDelete(q.id)} disabled={isQuiz}>
-                                            刪除
-                                        </Button>
-                                    </Space>
-                                }
-                            >
-                                {q.question}
-                            </List.Item>
-                        ))}
-                        {questions.length === 0 && <List.Item>尚無題目，請新增。</List.Item>}
-                    </List>
+                    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        <List>
+                            {questions.map((q) => (
+                                <List.Item
+                                    key={q.id}
+                                    description={`答案: ${q.correctAnswer} | 時間: ${q.duration}秒`}
+                                    extra={
+                                        <Space direction='vertical' style={{ gap: 4 }}>
+                                            <Button size='mini' color='primary' fill='outline' onClick={() => handleOpenEdit(q)} disabled={isQuiz}>
+                                                編輯
+                                            </Button>
+                                            <Button size='mini' color='danger' fill='outline' onClick={() => handleDelete(q.id)} disabled={isQuiz}>
+                                                刪除
+                                            </Button>
+                                        </Space>
+                                    }
+                                >
+                                    {q.question}
+                                </List.Item>
+                            ))}
+                            {questions.length === 0 && <List.Item>尚無題目，請新增。</List.Item>}
+                        </List>
+                    </div>
                 </Card>
 
-                <Button
-                    color='primary'
-                    onClick={handleInitGame}
-                    disabled={isQuiz}
-                    style={{ width: 230, maxWidth: '100%' }}
-                >
-                    初始化遊戲 (進入待機)
-                </Button>
+                {/* 【修改】初始化按鈕改為僅首次使用 */}
+                {!isQuiz && (
+                    <Button
+                        color='primary'
+                        onClick={handleInitGame}
+                        style={{ width: 230, maxWidth: '100%' }}
+                    >
+                        初始化遊戲 (進入待機)
+                    </Button>
+                )}
             </Space>
 
             <Popup

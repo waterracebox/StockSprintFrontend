@@ -14,6 +14,63 @@ interface Props {
 const QuizUserView: React.FC<Props> = ({ state, totalAssets, currentPrice, onCollapse }) => {
     const normalizedPhase = (state.phase || '').toUpperCase();
 
+    // 【新增】PREPARE 階段：只顯示題目
+    if (normalizedPhase === 'PREPARE') {
+        const questionTitle = state.data?.question?.title || '載入中...';
+
+        return (
+            <div
+                style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 9999,
+                    backgroundImage: `linear-gradient(135deg, rgba(75,0,130,0.78) 0%, rgba(25,25,112,0.75) 100%), url('/background/quiz.webp')`,
+                    backgroundSize: 'cover',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    color: '#fff',
+                }}
+            >
+                <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.25)' }}>
+                    <div style={{ fontWeight: 800, fontSize: 18 }}>🧠 機智問答</div>
+                    <button
+                        onClick={onCollapse}
+                        style={{
+                            border: 'none',
+                            background: 'rgba(255,255,255,0.18)',
+                            color: '#fff',
+                            padding: '6px 10px',
+                            borderRadius: 999,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                        }}
+                    >
+                        收起
+                    </button>
+                </div>
+                <div style={{ padding: '6px 14px', background: 'rgba(0,0,0,0.28)', color: '#fff', fontSize: 12, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>總資產: ${totalAssets.toFixed(2)}</span>
+                    <span>股價: ${currentPrice.toFixed(2)}</span>
+                </div>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                    <div 
+                        style={{ 
+                            fontSize: 24, 
+                            fontWeight: 700, 
+                            textAlign: 'center',
+                            animation: 'fadeIn 0.5s ease-in',
+                            lineHeight: 1.5,
+                        }}
+                    >
+                        {questionTitle}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (normalizedPhase !== 'IDLE') {
         return (
             <div

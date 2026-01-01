@@ -63,3 +63,15 @@ html, body {
   width: 60px;
   aspect-ratio: 1 / 1.3;
 }
+
+/* 【新增】Quiz 題目淡入動畫 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
