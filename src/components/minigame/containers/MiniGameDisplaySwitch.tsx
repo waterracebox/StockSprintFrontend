@@ -1,5 +1,6 @@
 import React from 'react';
 import RedEnvelopeDisplayView from '../games/RedEnvelope/RedEnvelopeDisplayView';
+import QuizDisplayView from '../games/Quiz/QuizDisplayView';
 import type { MiniGameSyncState } from './MiniGameOverlay';
 import type { Socket } from 'socket.io-client';
 
@@ -17,6 +18,8 @@ const MiniGameDisplaySwitch: React.FC<Props> = ({ miniGame, participants, socket
     switch (miniGame.gameType) {
         case 'RED_ENVELOPE':
             return <RedEnvelopeDisplayView miniGame={miniGame} participants={participants} socket={socket} />;
+        case 'QUIZ':
+            return <QuizDisplayView miniGame={miniGame} participants={participants} socket={socket} />;
         default:
             return (
                 <div

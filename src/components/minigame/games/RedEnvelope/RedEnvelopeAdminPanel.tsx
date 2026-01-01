@@ -264,7 +264,7 @@ const RedEnvelopeAdminPanel: React.FC<Props> = ({ status, socket, allowGuest, se
                                     key={it.id}
                                     description={`數量: ${it.amount} | 類型: ${typeLabel}${it.type === 'CASH' ? ` | 現金: ${it.prizeValue}` : ''}${displayOrderText}`}
                                     extra={
-                                        <Space>
+                                        <Space direction='vertical' style={{ gap: 4 }}>
                                             <Button size='mini' color='primary' fill='outline' onClick={() => handleOpenEdit(it)} disabled={isRedEnvelope}>
                                                 編輯
                                             </Button>
