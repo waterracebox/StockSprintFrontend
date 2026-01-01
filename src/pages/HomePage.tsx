@@ -155,7 +155,9 @@ const HomePage: React.FC = () => {
                 window.history.pushState(null, '', `${window.location.pathname}#minigame`);
             }
         } else {
-            if (window.location.hash === '#minigame') {
+            // 【修改】只有當 miniGameState 已經加載後，才清除 hash
+            // 避免頁面初始化時（miniGameState = null）過早清除 hash
+            if (window.location.hash === '#minigame' && miniGameState !== null) {
                 window.history.replaceState(null, '', window.location.pathname);
             }
         }

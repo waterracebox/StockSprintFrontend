@@ -19,8 +19,6 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
     const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
 
     const isQuiz = status.gameType === 'QUIZ';
-    const isIdlePhase = status.phase?.toUpperCase() === 'IDLE';
-    const isPreparePhase = status.phase?.toUpperCase() === 'PREPARE';
 
     const loadQuestions = async () => {
         try {
@@ -146,8 +144,8 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
     return (
         <div style={{ padding: '16px 0' }}>
             <Space direction='vertical' block>
-                {/* 【優化】選題與發布區 - 固定在頂部 */}
-                {isQuiz && (isIdlePhase || isPreparePhase) && questions.length > 0 && (
+                {/* 【優化】選題與發布區 - 在遊戲進行中也保持顯示 */}
+                {isQuiz && questions.length > 0 && (
                     <Card title='📢 發布題目' style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#fff' }}>
                         <Space direction='vertical' block>
                             <div style={{ 
@@ -207,7 +205,7 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
                                 block
                                 size='large'
                             >
-                                📢 發布題目
+                                📢 發布題目（自動開始）
                             </Button>
                         </Space>
                     </Card>
