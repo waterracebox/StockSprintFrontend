@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { MiniGameSyncState } from '../../containers/MiniGameOverlay';
 import type { Socket } from 'socket.io-client';
 import ProgressBar from '../../common/ProgressBar';
+import { motion } from 'framer-motion';
 
 interface Props {
     miniGame: MiniGameSyncState;
@@ -30,6 +31,196 @@ const QuizDisplayView: React.FC<Props> = ({ miniGame }) => {
 
     if (miniGame.gameType !== 'QUIZ') {
         return null;
+    }
+
+    // ========== RESULT 階段：答案揭曉 + 排行榜 ==========
+    if (normalizedPhase === 'RESULT') {
+        const questionTitle = miniGame.data?.question?.title || '';
+        const options = miniGame.data?.question?.options || [];
+        const correctAnswer = miniGame.data?.question?.correctAnswer || 'A';
+        const correctIndex = correctAnswer.charCodeAt(0) - 'A'.charCodeAt(0);
+        const winners = (miniGame.data?.winners || []) as Array<{ 
+            userId: number; 
+            displayName: string; 
+            avatar: string | null; 
+            reward: number; 
+            rank: number;
+        }>;
+
+        const resolveAvatar = (avatar?: string | null) => {
+            if (!avatar) return '/avatars/default.png';
+            if (avatar.startsWith('http')) return avatar;
+            if (avatar.startsWith('/')) return avatar;
+            return `/avatars/${avatar}`;
+        };
+
+        return (
+            <div
+                style={{
+                    height: '100vh',
+                    width: '100vw',
+                    boxSizing: 'border-box',
+                    backgroundImage: `linear-gradient(135deg, rgba(75,0,130,0.65) 0%, rgba(25,25,112,0.65) 100%), url('/background/quiz.webp')`,
+                    backgroundSize: 'cover',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    color: '#fff',
+                    padding: 'clamp(24px, 4vh, 48px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    gap: 'clamp(16px, 3vh, 32px)',
+                }}
+            >
+                {/* Header */}
+                <div style={{ flex: '0 0 auto', textAlign: 'center' }}>
+                    <h1 style={{ margin: 0, fontSize: 'clamp(36px, 4.5vw, 60px)', fontWeight: 900 }}>
+                        🧠 機智問答
+                    </h1>
+                </div>
+
+                {/* Question (縮小) */}
+                <div style={{ 
+                    flex: '0 0 auto',
+                    fontSize: 'clamp(18px, 2.2vw, 28px)',
+                    fontWeight: 600,
+                    textAlign: 'center',
+                    lineHeight: 1.2,
+                    maxHeight: '12vh',
+                    overflow: 'hidden',
+                    opacity: 0.7,
+                }}>
+                    {questionTitle}
+                </div>
+
+                {/* Correct Answer (突出顯示) */}
+                <div style={{ 
+                    flex: '0 0 auto',
+                }}>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.6, ease: 'easeOut' }}
+                        style={{
+                            background: 'linear-gradient(135deg, #4CAF50, #66BB6A)',
+                            color: '#fff',
+                            border: '3px solid #81C784',
+                            borderRadius: 16,
+                            padding: 'clamp(16px, 2.5vh, 24px)',
+                            fontSize: 'clamp(22px, 2.8vw, 40px)',
+                            fontWeight: 700,
+                            textAlign: 'center',
+                            boxShadow: '0 4px 20px rgba(76, 175, 80, 0.6)',
+                        }}
+                    >
+                        {correctAnswer}. {options[correctIndex]}
+                    </motion.div>
+                </div>
+
+                {/* Leaderboard (擴大顯示區域) */}
+                <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.8, duration: 0.6 }}
+                    style={{ 
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 'clamp(12px, 2vh, 20px)',
+                        minHeight: 0,
+                        justifyContent: 'center',
+                    }}
+                >
+                    <div style={{ 
+                        fontSize: 'clamp(28px, 3.5vw, 44px)', 
+                        fontWeight: 900, 
+                        textAlign: 'center',
+                        marginBottom: 'clamp(8px, 1vh, 16px)',
+                    }}>
+                        🏆 得獎名單
+                    </div>
+                    
+                    {winners.length === 0 ? (
+                        <div style={{ fontSize: 'clamp(20px, 2.5vw, 32px)', textAlign: 'center', opacity: 0.7 }}>
+                            無人答對
+                        </div>
+                    ) : (
+                        <div style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: winners.length >= 3 
+                                ? 'repeat(auto-fit, minmax(min(100%, 110px), 1fr))' 
+                                : `repeat(${winners.length}, 1fr)`,
+                            gap: 'clamp(8px, 1.5vw, 24px)',
+                            justifyItems: 'center',
+                            alignItems: 'start',
+                            padding: '0 clamp(8px, 2vw, 32px)',
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                        }}>
+                            {winners.slice(0, 3).map((winner, idx) => (
+                                <motion.div
+                                    key={winner.userId}
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    transition={{ delay: 1.0 + idx * 0.15, duration: 0.5, ease: 'backOut' }}
+                                    style={{
+                                        background: idx === 0 
+                                            ? 'linear-gradient(135deg, #FFD700, #FFA500)' 
+                                            : idx === 1 
+                                            ? 'linear-gradient(135deg, #C0C0C0, #A9A9A9)'
+                                            : 'linear-gradient(135deg, #CD7F32, #8B4513)',
+                                        borderRadius: 'clamp(12px, 2vw, 16px)',
+                                        padding: 'clamp(12px, 2vh, 24px)',
+                                        textAlign: 'center',
+                                        width: '100%',
+                                        maxWidth: '100%',
+                                        minWidth: 0,
+                                        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                                        boxSizing: 'border-box',
+                                    }}
+                                >
+                                    <img
+                                        src={resolveAvatar(winner.avatar)}
+                                        alt={winner.displayName}
+                                        style={{
+                                            width: 'clamp(50px, 12vw, 100px)',
+                                            height: 'clamp(50px, 12vw, 100px)',
+                                            borderRadius: '50%',
+                                            border: 'clamp(2px, 0.4vw, 4px) solid #fff',
+                                            marginBottom: 'clamp(6px, 1vh, 12px)',
+                                            objectFit: 'cover',
+                                        }}
+                                    />
+                                    <div style={{ fontSize: 'clamp(20px, 4vw, 36px)', fontWeight: 900 }}>
+                                        {idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}
+                                    </div>
+                                    <div style={{ 
+                                        fontSize: 'clamp(14px, 2.5vw, 24px)', 
+                                        fontWeight: 700, 
+                                        marginTop: 'clamp(4px, 0.8vh, 8px)',
+                                        wordBreak: 'break-word',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        padding: '0 4px',
+                                    }}>
+                                        {winner.displayName}
+                                    </div>
+                                    <div style={{ 
+                                        fontSize: 'clamp(16px, 3vw, 28px)', 
+                                        fontWeight: 900, 
+                                        color: '#fff', 
+                                        marginTop: 'clamp(2px, 0.5vh, 6px)',
+                                    }}>
+                                        ${winner.reward}
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    )}
+                </motion.div>
+            </div>
+        );
     }
 
     // ========== PREPARE 階段：顯示題目 + 進度條 ==========

@@ -20,6 +20,10 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
 
     const isQuiz = status.gameType === 'QUIZ';
 
+    // 【新增】判斷是否可以選擇/發布題目（僅在 IDLE 或 RESULT 階段）
+    const normalizedPhase = (status.phase || '').toUpperCase();
+    const canPublish = normalizedPhase === 'IDLE' || normalizedPhase === 'RESULT';
+
     const loadQuestions = async () => {
         try {
             const data = await quizService.getQuestions();
@@ -97,7 +101,10 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
             return;
         }
         setEditingQuestion(question);
-        form.setFieldsValue(question);
+        form.setFieldsValue({
+            ...question,
+            rewards: question.rewards || { first: 100, second: 50, third: 30, others: 10 }, // 【確保有預設值】
+        });
         setModalOpen(true);
     };
 
@@ -121,10 +128,23 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
 
     const handleSubmit = async (values: QuizPayload) => {
         try {
-            // 將正確答案轉為大寫
+            // 【新增】驗證獎勵欄位
+            const rewards = {
+                first: Number(values.rewards?.first) || 100,
+                second: Number(values.rewards?.second) || 50,
+                third: Number(values.rewards?.third) || 30,
+                others: Number(values.rewards?.others) || 10,
+            };
+
+            if (rewards.first <= 0 || rewards.second <= 0 || rewards.third <= 0 || rewards.others <= 0) {
+                Toast.show({ icon: 'fail', content: '所有獎勵必須為正數' });
+                return;
+            }
+
             const normalizedValues = {
                 ...values,
                 correctAnswer: values.correctAnswer.toUpperCase(),
+                rewards, // 【新增】確保送出完整獎勵結構
             };
 
             if (editingQuestion) {
@@ -194,6 +214,7 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
                                         actions: [{ key: 'close', text: '取消' }],
                                     });
                                 }}
+                                disabled={!canPublish}
                                 block
                             >
                                 🔍 選擇題目
@@ -201,7 +222,7 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
                             <Button 
                                 color='success' 
                                 onClick={handlePublishQuestion}
-                                disabled={selectedQuestionId === null}
+                                disabled={selectedQuestionId === null || !canPublish}
                                 block
                                 size='large'
                             >
@@ -295,6 +316,21 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
                     </Form.Item>
                     <Form.Item name='duration' label='作答時間(秒)'>
                         <Input type='number' placeholder='預設 10 秒' />
+                    </Form.Item>
+                    
+                    {/* 【新增】獎勵設定區塊 */}
+                    <div style={{ marginTop: 16, marginBottom: 12, fontWeight: 700, fontSize: 15 }}>獎勵設定 ($)</div>
+                    <Form.Item name={['rewards', 'first']} label='第一名' initialValue={100}>
+                        <Input type='number' placeholder='例如 100' />
+                    </Form.Item>
+                    <Form.Item name={['rewards', 'second']} label='第二名' initialValue={50}>
+                        <Input type='number' placeholder='例如 50' />
+                    </Form.Item>
+                    <Form.Item name={['rewards', 'third']} label='第三名' initialValue={30}>
+                        <Input type='number' placeholder='例如 30' />
+                    </Form.Item>
+                    <Form.Item name={['rewards', 'others']} label='其他獎勵' initialValue={10}>
+                        <Input type='number' placeholder='例如 10（第四名以後的基礎獎金）' />
                     </Form.Item>
                 </Form>
             </Popup>
