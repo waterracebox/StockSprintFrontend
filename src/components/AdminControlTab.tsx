@@ -138,7 +138,7 @@ const AdminControlTab: React.FC = () => {
     return (
         <div style={{ padding: '20px', maxWidth: '100%', boxSizing: 'border-box' }}>
             <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>
-                A. 遊戲控制
+                遊戲控制
             </h3>
 
             <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0f0f0', borderRadius: '8px' }}>

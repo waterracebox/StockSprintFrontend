@@ -348,11 +348,11 @@ const AdminScriptTab: React.FC = () => {
             <Collapse.Panel key='config' title='參數設定'>
               <Form
                 form={generateForm}
-                initialValues={{ targetDailyChange: 0.05, bullMarketDrift: 0.1, decayRate: 0.9 }}
+                initialValues={{ targetDailyChange: 0.1, bullMarketDrift: 0.1, decayRate: 0.9 }}
                 onFinish={handleGenerate}
               >
                 <Form.Item name='targetDailyChange' label='單日漲跌幅目標 (倍數)'>
-                  <Input type='number' step='0.01' placeholder='0.2' />
+                  <Input type='number' step='0.01' placeholder='0.1' />
                 </Form.Item>
                 <Form.Item name='bullMarketDrift' label='牛市漂移 (價格增量)'>
                   <Input type='number' step='0.01' placeholder='0.1' />

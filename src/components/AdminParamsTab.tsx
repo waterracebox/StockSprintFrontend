@@ -112,11 +112,11 @@ const AdminParamsTab: React.FC = () => {
         const defaults = {
             timeRatio: 60,
             totalDays: 120,
-            initialPrice: 30,
+            initialPrice: 200,
             initialCash: 50,
             maxLeverage: 10,
             dailyInterestRate: 0.0001,
-            maxLoanAmount: 100,
+            maxLoanAmount: 1000,
         };
         form.setFieldsValue(defaults);
         updateDirtyFlags({ ...form.getFieldsValue(), ...defaults });
@@ -130,7 +130,7 @@ const AdminParamsTab: React.FC = () => {
     return (
         <div style={{ padding: '20px', maxWidth: '100%', boxSizing: 'border-box' }}>
             <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>
-                B. 遊戲參數
+                遊戲參數
             </h3>
 
             <Form 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Button, Toast } from 'antd-mobile';
+import { Input, Button, Toast, Dialog } from 'antd-mobile';
 import { SearchOutline } from 'antd-mobile-icons';
 import apiClient from '../services/apiClient';
 
@@ -74,21 +74,57 @@ const AdminUsersTab: React.FC = () => {
         window.dispatchEvent(new Event('hashchange'));
     };
 
+    // 批量刪除所有非管理員玩家
+    const handleBatchDelete = async () => {
+        const confirmed = await Dialog.confirm({
+            content: '⚠️ 確定要刪除所有非管理員玩家嗎？此操作無法復原！',
+            closeOnMaskClick: false,
+        });
+
+        if (!confirmed) return;
+
+        try {
+            setLoading(true);
+            const response = await apiClient.delete('/admin/users/batch');
+            Toast.show({ 
+                icon: 'success', 
+                content: response.data.message || '批量刪除成功',
+                duration: 3000,
+            });
+            await fetchUsers();
+        } catch (error: any) {
+            console.error('[Admin] 批量刪除失敗:', error);
+            Toast.show({ icon: 'fail', content: error.response?.data?.error || '批量刪除失敗' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div style={{ padding: '20px' }}>
-            {/* 標題列與 REFRESH 按鈕 */}
+            {/* 標題列與按鈕群組 */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
-                    C. 使用者設定 (玩家管理)
+                    玩家管理
                 </h3>
-                <Button
-                    size='small'
-                    color='primary'
-                    loading={loading}
-                    onClick={fetchUsers}
-                >
-                    更新
-                </Button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <Button
+                        size='small'
+                        color='danger'
+                        loading={loading}
+                        onClick={handleBatchDelete}
+                    >
+                        清除所有玩家
+                    </Button>
+                    <Button
+                        size='small'
+                        color='primary'
+                        loading={loading}
+                        onClick={fetchUsers}
+                    >
+                        更新
+                    </Button>
+                </div>
             </div>
 
             {/* 搜尋框 */}
