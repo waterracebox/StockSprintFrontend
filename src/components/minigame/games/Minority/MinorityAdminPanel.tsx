@@ -34,8 +34,15 @@ const MinorityAdminPanel: React.FC<Props> = ({ status, socket }) => {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingQuestion, setEditingQuestion] = useState<MinorityQuestion | null>(null);
     const [form] = Form.useForm<MinorityPayload>();
+    
+    // 【新增】本地選擇的題目 ID (受控於 status.data.nextCandidateId)
+    const [selectedQuestionId, setSelectedQuestionId] = useState<number | null>(null);
 
     const isMinority = status.gameType === 'MINORITY';
+
+    // 【新增】判斷是否可以發布題目（僅在 IDLE 或 RESULT 階段）
+    const normalizedPhase = (status.phase || '').toUpperCase();
+    const canPublish = normalizedPhase === 'IDLE' || normalizedPhase === 'RESULT';
 
     const loadQuestions = async () => {
         try {
@@ -49,6 +56,35 @@ const MinorityAdminPanel: React.FC<Props> = ({ status, socket }) => {
     useEffect(() => {
         loadQuestions();
     }, []);
+
+    // 【新增】同步 Dropdown 值與 gameState
+    useEffect(() => {
+        const candidateId = status.data?.nextCandidateId as number | undefined;
+        if (candidateId !== undefined && candidateId !== null) {
+            setSelectedQuestionId(candidateId);
+        }
+    }, [status.data?.nextCandidateId]);
+
+    // 【新增】發布題目邏輯
+    const handlePublishQuestion = () => {
+        if (!socket) {
+            Toast.show({ icon: 'fail', content: '尚未連線，請稍後重試' });
+            return;
+        }
+
+        if (selectedQuestionId === null) {
+            Toast.show({ icon: 'fail', content: '請先選擇題目' });
+            return;
+        }
+
+        socket.emit('ADMIN_MINIGAME_ACTION', { 
+            type: 'INIT_GAME', 
+            gameType: 'MINORITY',
+            questionId: selectedQuestionId 
+        });
+        
+        Toast.show({ icon: 'success', content: '已發布題目' });
+    };
 
     const handleInitGame = () => {
         if (!socket) {
@@ -123,6 +159,74 @@ const MinorityAdminPanel: React.FC<Props> = ({ status, socket }) => {
     return (
         <div style={{ padding: '16px 0' }}>
             <Space direction='vertical' block>
+                {/* 【新增】選題與發布區 */}
+                {isMinority && questions.length > 0 && (
+                    <Card title='📢 發布題目' style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: '#fff' }}>
+                        <Space direction='vertical' block>
+                            <div style={{ 
+                                padding: '8px 12px', 
+                                background: '#f5f5f5', 
+                                borderRadius: 8,
+                                fontSize: 14,
+                                color: '#666'
+                            }}>
+                                <strong>目前選擇：</strong>
+                                {selectedQuestionId 
+                                    ? `Q${selectedQuestionId}: ${questions.find(q => q.id === selectedQuestionId)?.question.substring(0, 40) || ''}...`
+                                    : '尚未選擇'
+                                }
+                            </div>
+                            <Button 
+                                color='primary' 
+                                onClick={() => {
+                                    // 彈出選題 Popup
+                                    Dialog.show({
+                                        title: '選擇題目',
+                                        content: (
+                                            <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                                                <List>
+                                                    {questions.map((q) => (
+                                                        <List.Item
+                                                            key={q.id}
+                                                            onClick={() => {
+                                                                setSelectedQuestionId(q.id);
+                                                                Dialog.clear();
+                                                            }}
+                                                            style={{ 
+                                                                cursor: 'pointer',
+                                                                background: selectedQuestionId === q.id ? '#e6f7ff' : 'transparent'
+                                                            }}
+                                                        >
+                                                            <div style={{ fontWeight: selectedQuestionId === q.id ? 700 : 400 }}>
+                                                                Q{q.id}: {q.question}
+                                                            </div>
+                                                        </List.Item>
+                                                    ))}
+                                                </List>
+                                            </div>
+                                        ),
+                                        closeOnAction: true,
+                                        actions: [{ key: 'close', text: '取消' }],
+                                    });
+                                }}
+                                disabled={!canPublish}
+                                block
+                            >
+                                🔍 選擇題目
+                            </Button>
+                            <Button 
+                                color='success' 
+                                onClick={handlePublishQuestion}
+                                disabled={selectedQuestionId === null || !canPublish}
+                                block
+                                size='large'
+                            >
+                                📢 發布題目（自動開始）
+                            </Button>
+                        </Space>
+                    </Card>
+                )}
+
                 <Card
                     title='題庫列表'
                     extra={
