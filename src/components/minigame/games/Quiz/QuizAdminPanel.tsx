@@ -45,6 +45,16 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
         }
     }, [status.data?.nextCandidateId]);
 
+    // 【新增】當進入 PREPARE 階段時（剛發布題目），強制同步 nextCandidateId
+    useEffect(() => {
+        if (status.phase === 'PREPARE') {
+            const candidateId = status.data?.nextCandidateId as number | undefined;
+            if (candidateId !== undefined && candidateId !== null) {
+                setSelectedQuestionId(candidateId);
+            }
+        }
+    }, [status.phase, status.data?.nextCandidateId]);
+
     // 【新增】發布題目邏輯
     const handlePublishQuestion = () => {
         if (!socket) {
@@ -271,6 +281,7 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
                     <Button
                         color='primary'
                         onClick={handleInitGame}
+                        disabled={status.gameType !== 'NONE'}
                         style={{ width: 230, maxWidth: '100%' }}
                     >
                         初始化遊戲 (進入待機)

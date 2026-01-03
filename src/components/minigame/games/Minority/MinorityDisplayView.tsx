@@ -253,6 +253,148 @@ const MinorityDisplayView: React.FC<Props> = ({ miniGame }) => {
         );
     }
 
+    // ========== RESULT 階段：長條圖結果 ==========
+    if (normalizedPhase === 'RESULT') {
+        const questionTitle = miniGame.data?.question?.title || '';
+        const options = miniGame.data?.question?.options || [];
+        const settlementResult = miniGame.data?.settlementResult;
+        const optionStats = settlementResult?.optionStats || {};
+        const winnerOptions = settlementResult?.winnerOptions || [];
+        const totalVotes = Object.values(optionStats).reduce((sum: number, stats: any) => sum + stats.count, 0);
+
+        return (
+            <div
+                style={{
+                    height: '100vh',
+                    width: '100vw',
+                    boxSizing: 'border-box',
+                    backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.6) 100%), url('/background/minority.webp')`,
+                    backgroundSize: 'cover',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    color: '#fff',
+                    padding: 'clamp(24px, 4vh, 48px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    gap: 'clamp(16px, 3vh, 32px)',
+                }}
+            >
+                {/* Header */}
+                <div style={{ flex: '0 0 auto', textAlign: 'center' }}>
+                    <h1 style={{ margin: 0, fontSize: 'clamp(36px, 4.5vw, 64px)', fontWeight: 900 }}>⚖️ 全場少數決</h1>
+                </div>
+
+                {/* Question */}
+                <div style={{ 
+                    flex: '0 0 auto',
+                    fontSize: 'clamp(20px, 2.5vw, 32px)',
+                    fontWeight: 600,
+                    textAlign: 'center',
+                    lineHeight: 1.3,
+                }}>
+                    {questionTitle}
+                </div>
+
+                {/* Options (Vertical List with Bars) */}
+                <div style={{ 
+                    flex: 1, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: 'clamp(12px, 2vh, 24px)',
+                    minHeight: 0,
+                }}>
+                    {options.map((opt: string, idx: number) => {
+                        const optionLetter = String.fromCharCode(65 + idx);
+                        const stats = optionStats[optionLetter] || { count: 0, totalBet: 0 };
+                        const isWinner = winnerOptions.includes(optionLetter);
+                        const percentage = totalVotes > 0 ? (stats.count / totalVotes) * 100 : 0;
+
+                        return (
+                            <div
+                                key={idx}
+                                style={{
+                                    flex: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    padding: 'clamp(12px, 2vh, 24px)',
+                                    borderRadius: 12,
+                                    border: `2px solid ${isWinner ? '#4CAF50' : 'rgba(255,255,255,0.2)'}`,
+                                }}
+                            >
+                                {/* 背景長條圖 (CSS Transition) */}
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        left: 0,
+                                        top: 0,
+                                        bottom: 0,
+                                        width: `${percentage}%`,
+                                        background: isWinner
+                                            ? 'linear-gradient(90deg, rgba(76,175,80,0.4) 0%, rgba(76,175,80,0.2) 100%)'
+                                            : 'rgba(255,255,255,0.08)',
+                                        transition: 'width 1.5s ease-out',
+                                        zIndex: 0,
+                                    }}
+                                />
+
+                                {/* 文字內容 */}
+                                <div
+                                    style={{
+                                        position: 'relative',
+                                        zIndex: 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        width: '100%',
+                                    }}
+                                >
+                                    <div style={{ 
+                                        marginRight: 16, 
+                                        fontSize: 'clamp(24px, 3vw, 36px)', 
+                                        fontWeight: 900,
+                                        color: isWinner ? '#4CAF50' : 'rgba(255,255,255,0.5)',
+                                    }}>
+                                        {optionLetter}
+                                    </div>
+                                    <div style={{ 
+                                        flex: 1,
+                                        fontSize: 'clamp(18px, 2.2vw, 28px)',
+                                        fontWeight: 600,
+                                        color: isWinner ? '#fff' : 'rgba(255,255,255,0.5)',
+                                    }}>
+                                        {opt}
+                                    </div>
+                                    {/* 人數標籤 */}
+                                    <div style={{
+                                        fontSize: 'clamp(20px, 2.5vw, 32px)',
+                                        fontWeight: 800,
+                                        color: isWinner ? '#4CAF50' : 'rgba(255,255,255,0.6)',
+                                    }}>
+                                        {stats.count} 人
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Status Text */}
+                <div style={{ 
+                    flex: '0 0 auto', 
+                    fontSize: 'clamp(16px, 1.8vw, 22px)', 
+                    textAlign: 'center', 
+                    opacity: 0.7 
+                }}>
+                    {settlementResult?.status === 'REFUND' && '平局退款'}
+                    {settlementResult?.status === 'HOUSE_WINS' && '🏦 莊家通殺'}
+                    {settlementResult?.status === 'STANDARD' && `🏆 少數方獲勝：${winnerOptions.join(', ')}`}
+                </div>
+            </div>
+        );
+    }
+
     // ========== IDLE 階段 ==========
     if (normalizedPhase === 'IDLE') {
         return (

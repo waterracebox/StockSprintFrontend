@@ -26,6 +26,22 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
     // 【新增】Debounce Timer
     const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // 【新增】追蹤遊戲回合，每次進入 PREPARE 都重置
+    const lastPhaseRef = useRef<string>('');
+
+    useEffect(() => {
+        const currentPhase = normalizedPhase;
+        
+        // 當進入 PREPARE 階段時（新一輪遊戲開始），重置選擇和押注
+        if (currentPhase === 'PREPARE' && lastPhaseRef.current !== 'PREPARE') {
+            console.log(`[Minority] 進入 PREPARE 階段，重置選項和金額`);
+            setSelectedOption(null);
+            setBetAmount(0);
+        }
+        
+        lastPhaseRef.current = currentPhase;
+    }, [normalizedPhase]);
+
     // COUNTDOWN 階段倒數
     useEffect(() => {
         if (normalizedPhase !== 'COUNTDOWN') return;
@@ -290,7 +306,7 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
                                 min={0}
                                 max={maxCash}
                                 step={1}
-                                value={betAmount}
+                                value={Math.min(betAmount, maxCash)}
                                 onChange={(val) => setBetAmount(typeof val === 'number' ? val : val[0])}
                                 disabled={!selectedOption}
                                 style={{
@@ -323,6 +339,122 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
                             請先選擇選項
                         </div>
                     )}
+                </div>
+            </div>
+        );
+    }
+
+    // ========== RESULT 階段：顯示結果 ==========
+    if (normalizedPhase === 'RESULT') {
+        const settlementResult = state.data?.settlementResult;
+        const myResult = settlementResult?.results?.find((r: any) => r.userId === selfUserId);
+
+        if (!myResult) {
+            return (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 9999,
+                    backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.6) 100%), url('/background/minority.webp')`,
+                    backgroundSize: 'cover',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    color: '#fff',
+                }}>
+                    <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.25)' }}>
+                        <div style={{ fontWeight: 800, fontSize: 18 }}>⚖️ 全場少數決</div>
+                        <button onClick={onCollapse} style={{ border: 'none', background: 'rgba(255,255,255,0.18)', color: '#fff', padding: '6px 10px', borderRadius: 999, cursor: 'pointer', fontWeight: 600 }}>
+                            收起
+                        </button>
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+                        <div style={{ fontSize: 18, opacity: 0.8 }}>你未參與本局</div>
+                    </div>
+                </div>
+            );
+        }
+
+        const { option, betAmount, status, profit } = myResult;
+
+        // 狀態顏色與訊息
+        let statusColor = '#888';
+        let statusMessage = '平局，退還本金';
+        let amountText = '$0';
+        let amountColor = '#888';
+
+        if (status === 'WINNER') {
+            statusColor = '#4CAF50';
+            statusMessage = '恭喜！你是少數派 (Minority)！';
+            amountText = `+$${profit}`;
+            amountColor = '#4CAF50';
+        } else if (status === 'LOSER') {
+            if (settlementResult.status === 'HOUSE_WINS') {
+                statusColor = '#B71C1C';
+                statusMessage = '莊家通殺！所有人皆輸';
+            } else {
+                statusColor = '#F44336';
+                statusMessage = '可惜！你是多數派 (Majority)！';
+            }
+            amountText = `-$${betAmount}`;
+            amountColor = '#F44336';
+        }
+
+        return (
+            <div style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 9999,
+                backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.6) 100%), url('/background/minority.webp')`,
+                backgroundSize: 'cover',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                color: '#fff',
+            }}>
+                {/* Header */}
+                <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.25)' }}>
+                    <div style={{ fontWeight: 800, fontSize: 18 }}>⚖️ 全場少數決</div>
+                    <button onClick={onCollapse} style={{ border: 'none', background: 'rgba(255,255,255,0.18)', color: '#fff', padding: '6px 10px', borderRadius: 999, cursor: 'pointer', fontWeight: 600 }}>
+                        收起
+                    </button>
+                </div>
+
+                {/* Status Bar */}
+                <div style={{ padding: '6px 14px', background: 'rgba(0,0,0,0.28)', color: '#fff', fontSize: 12, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>總資產: ${totalAssets.toFixed(2)}</span>
+                    <span>股價: ${currentPrice.toFixed(2)}</span>
+                </div>
+
+                {/* 結果區域 */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
+                    {/* 選擇提示 */}
+                    <div style={{ fontSize: 16, opacity: 0.8 }}>
+                        你選擇了 <span style={{ fontWeight: 700, fontSize: 20 }}>[{option}]</span>
+                    </div>
+
+                    {/* 狀態訊息 */}
+                    <div style={{
+                        fontSize: 24,
+                        fontWeight: 800,
+                        color: statusColor,
+                        textAlign: 'center',
+                        lineHeight: 1.3,
+                    }}>
+                        {statusMessage}
+                    </div>
+
+                    {/* 金額變動 */}
+                    <div style={{
+                        fontSize: 48,
+                        fontWeight: 900,
+                        color: amountColor,
+                        textShadow: `0 0 20px ${amountColor}`,
+                    }}>
+                        {amountText}
+                    </div>
                 </div>
             </div>
         );

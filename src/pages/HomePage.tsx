@@ -527,6 +527,17 @@ const HomePage: React.FC = () => {
                     debt: payload.newDebt ?? assets.debt,
                 });
 
+                // 【新增】同步更新 user 狀態，確保小遊戲下注上限即時更新
+                setUser((prev) => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        cash: payload.newCash,
+                        stocks: payload.newStocks,
+                        debt: payload.newDebt ?? prev.debt,
+                    };
+                });
+
                 playSound('/sounds/coin.mp3');
 
                 Toast.show({
@@ -542,6 +553,12 @@ const HomePage: React.FC = () => {
                     ...prev,
                     cash: payload.newCash,
                 }));
+
+                // 【新增】同步更新 user 狀態
+                setUser((prev) => {
+                    if (!prev) return prev;
+                    return { ...prev, cash: payload.newCash };
+                });
 
                 // 更新活躍合約列表
                 setActiveContracts(prev => [...prev, payload.contractOrder]);
@@ -559,6 +576,12 @@ const HomePage: React.FC = () => {
                     ...prev,
                     cash: payload.newCash,
                 }));
+
+                // 【新增】同步更新 user 狀態
+                setUser((prev) => {
+                    if (!prev) return prev;
+                    return { ...prev, cash: payload.newCash };
+                });
 
                 // 清空今日活躍合約（已撤銷）
                 setActiveContracts([]);
@@ -578,6 +601,16 @@ const HomePage: React.FC = () => {
                     debt: payload.newDebt ?? prev.debt,
                     dailyBorrowed: payload.dailyBorrowed ?? prev.dailyBorrowed, // 【新增】更新當日已借金額
                 }));
+
+                // 【新增】同步更新 user 狀態，確保小遊戲下注上限即時更新
+                setUser((prev) => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        cash: payload.newCash,
+                        debt: payload.newDebt ?? prev.debt,
+                    };
+                });
 
                 Toast.show({
                     icon: 'success',
@@ -602,6 +635,16 @@ const HomePage: React.FC = () => {
                 cash: payload.newCash,
                 debt: payload.newDebt,
             }));
+
+            // 【新增】同步更新 user 狀態
+            setUser((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    cash: payload.newCash,
+                    debt: payload.newDebt,
+                };
+            });
 
             // 清空活躍合約（已結算）
             setActiveContracts([]);

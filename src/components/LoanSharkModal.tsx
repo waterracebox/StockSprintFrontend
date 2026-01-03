@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Toast, Dialog, Popup, Switch, Slider } from 'antd-mobile';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Button, Toast, Dialog, Popup, Slider } from 'antd-mobile';
 import { CloseOutline } from 'antd-mobile-icons';
 import { Socket } from 'socket.io-client';
+import DualColorSwitch from './common/DualColorSwitch';
 
 interface LoanSharkModalProps {
     isOpen: boolean;
@@ -18,6 +19,35 @@ interface LoanSharkModalProps {
     };
 }
 
+// 將樣式提取為常量，避免每次渲染創建新物件
+const POPUP_BODY_STYLE = {
+    minHeight: '70vh',
+    maxHeight: '85vh',
+    padding: '0',
+    backgroundColor: '#f5f5f5',
+    borderTopLeftRadius: '16px',
+    borderTopRightRadius: '16px',
+    overflow: 'hidden'
+} as const;
+
+const HEADER_STYLE = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px 20px',
+    backgroundColor: '#fff',
+    borderBottom: '1px solid #f0f0f0',
+    position: 'sticky' as const,
+    top: 0,
+    zIndex: 10
+};
+
+const CONTENT_STYLE = {
+    padding: '24px 16px',
+    overflowY: 'auto' as const,
+    maxHeight: 'calc(85vh - 60px)'
+};
+
 const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
     isOpen,
     onClose,
@@ -33,20 +63,26 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
     const { cash, debt, dailyBorrowed = 0 } = userAssets;
     const { maxLoanAmount, dailyInterestRate } = gameConfig;
 
-    // 計算剩餘額度 / 還款上限
-    const remainingLimit = maxLoanAmount - dailyBorrowed;
-    const repayMax = Math.max(0, Math.min(cash, debt));
-    const sliderMax = mode === 'BORROW' ? Math.max(0, remainingLimit) : repayMax;
-    const sliderStep = 0.01; // 固定 0.01 以便精確還款到上限
-    const formatAmount = (val: number) => val.toFixed(2);
+    // 使用 useMemo 計算衍生狀態，避免每次渲染重複計算
+    const { remainingLimit, repayMax, sliderMax, sliderStep } = useMemo(() => {
+        const remainingLimit = maxLoanAmount - dailyBorrowed;
+        const repayMax = Math.max(0, Math.min(cash, debt));
+        const sliderMax = mode === 'BORROW' ? Math.max(0, remainingLimit) : repayMax;
+        const sliderStep = 0.01;
+        return { remainingLimit, repayMax, sliderMax, sliderStep };
+    }, [maxLoanAmount, dailyBorrowed, cash, debt, mode]);
 
-    // 黑心商人圖片與對話
-    const merchantImage = merchantState === 'NORMAL' 
-        ? '/images/merchant_normal.webp' 
-        : '/images/merchant_happy.webp';
-    const merchantMessage = merchantState === 'NORMAL' 
-        ? '歡迎光臨' 
-        : '歡迎您下次光臨';
+    const formatAmount = useCallback((val: number) => val.toFixed(2), []);
+
+    // 使用 useMemo 緩存圖片路徑和訊息
+    const { merchantImage, merchantMessage } = useMemo(() => ({
+        merchantImage: merchantState === 'NORMAL' 
+            ? '/images/merchant_normal.webp' 
+            : '/images/merchant_happy.webp',
+        merchantMessage: merchantState === 'NORMAL' 
+            ? '歡迎光臨' 
+            : '歡迎您下次光臨'
+    }), [merchantState]);
 
     // 監聽交易成功事件
     useEffect(() => {
@@ -54,57 +90,84 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
 
         const handleTradeSuccess = (payload: any) => {
             if (payload.action === 'BORROW' || payload.action === 'REPAY') {
-                // 切換到 HAPPY 狀態
                 setMerchantState('HAPPY');
-
-                // 3 秒後恢復 NORMAL
-                setTimeout(() => {
-                    setMerchantState('NORMAL');
-                }, 3000);
+                setTimeout(() => setMerchantState('NORMAL'), 3000);
             }
         };
 
         socket.on('TRADE_SUCCESS', handleTradeSuccess);
-
         return () => {
             socket.off('TRADE_SUCCESS', handleTradeSuccess);
         };
     }, [socket]);
 
-    // 依上限修正金額
-    useEffect(() => {
+    // 使用 useCallback 避免重複創建函數
+    const clampAmount = useCallback((value: number) => {
         const minVal = 0;
-        const clamped = Math.min(Math.max(amount, minVal), sliderMax);
-        setAmount(clamped);
-        setAmountInput(clamped > 0 ? formatAmount(clamped) : '');
-    }, [sliderMax, amount]);
+        return Math.min(Math.max(value, minVal), sliderMax);
+    }, [sliderMax]);
 
-    const handleSliderChange = (value: number) => {
-        const minVal = 0;
-        const clamped = Math.min(Math.max(value, minVal), sliderMax);
+    // 初始化時調整金額到合理範圍
+    useEffect(() => {
+        if (amount > sliderMax) {
+            const clamped = Math.min(amount, sliderMax);
+            setAmount(clamped);
+            setAmountInput(clamped > 0 ? formatAmount(clamped) : '');
+        }
+    }, [sliderMax]); // 只在 sliderMax 變化時執行，不依賴 amount
+
+    const handleSliderChange = useCallback((value: number | [number, number]) => {
+        const numValue = Array.isArray(value) ? value[0] : value;
+        const clamped = clampAmount(numValue);
         setAmount(clamped);
         setAmountInput(formatAmount(clamped));
-    };
+    }, [clampAmount, formatAmount]);
 
-    const handleInputChange = (value: string) => {
+    const handleInputChange = useCallback((value: string) => {
+        // 允許輸入任何內容（包括空字串、小數點等）
         setAmountInput(value);
-        if (value === '') return;
-        const num = parseFloat(value);
-        if (!Number.isNaN(num)) {
-            handleSliderChange(num);
+        
+        // 只在有效數字時同步更新 amount
+        if (value !== '') {
+            const num = parseFloat(value);
+            if (!Number.isNaN(num) && num >= 0) {
+                const clamped = clampAmount(num);
+                setAmount(clamped);
+            }
         }
-    };
+    }, [clampAmount]);
 
-    const handleInputBlur = () => {
-        const minVal = 0;
-        const num = parseFloat(amountInput || '0');
-        const clamped = Math.min(Math.max(!Number.isNaN(num) ? num : minVal, minVal), sliderMax);
-        setAmount(clamped);
-        setAmountInput(clamped > 0 ? formatAmount(clamped) : '');
-    };
+    const handleInputBlur = useCallback(() => {
+        const num = parseFloat(amountInput);
+        if (isNaN(num) || num < 0) {
+            // 無效輸入，重置為當前 amount
+            setAmountInput(amount > 0 ? formatAmount(amount) : '');
+        } else {
+            // 有效輸入，格式化並限制範圍
+            const clamped = clampAmount(num);
+            setAmount(clamped);
+            setAmountInput(clamped > 0 ? formatAmount(clamped) : '');
+        }
+    }, [amountInput, amount, sliderMax, formatAmount, clampAmount]);
 
-    // 借款處理
-    const handleBorrow = async () => {
+    // 模式切換處理 - 簡化邏輯，直接更新
+    const handleModeChange = useCallback((checked: boolean) => {
+        const nextMode: 'BORROW' | 'REPAY' = checked ? 'BORROW' : 'REPAY';
+        setMode(nextMode);
+        
+        // 計算新的上限
+        const nextLimit = maxLoanAmount - dailyBorrowed;
+        const nextRepayMax = Math.max(0, Math.min(cash, debt));
+        const nextMax = nextMode === 'BORROW' ? Math.max(0, nextLimit) : nextRepayMax;
+        const resetVal = nextMax > 0 ? Math.min(100, nextMax) : 0;
+        
+        // 直接更新，React 18 會自動批次處理
+        setAmount(resetVal);
+        setAmountInput(resetVal > 0 ? formatAmount(resetVal) : '');
+    }, [maxLoanAmount, dailyBorrowed, cash, debt, formatAmount]);
+
+    // 借款處理 - 使用 useCallback 優化
+    const handleBorrow = useCallback(async () => {
         if (!socket) {
             Toast.show({ icon: 'fail', content: 'WebSocket 未連線' });
             return;
@@ -128,10 +191,10 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
         if (confirmed) {
             socket.emit('BORROW_MONEY', { amount });
         }
-    };
+    }, [socket, amount, remainingLimit, dailyInterestRate]);
 
-    // 還款處理
-    const handleRepay = async () => {
+    // 還款處理 - 使用 useCallback 優化
+    const handleRepay = useCallback(async () => {
         if (!socket) {
             Toast.show({ icon: 'fail', content: 'WebSocket 未連線' });
             return;
@@ -161,7 +224,7 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
         if (confirmed) {
             socket.emit('REPAY_MONEY', { amount });
         }
-    };
+    }, [socket, amount, repayMax, debt]);
 
     return (
         <Popup
@@ -170,28 +233,10 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
             closeOnMaskClick={false}
             onMaskClick={undefined}
             position='bottom'
-            bodyStyle={{
-                minHeight: '70vh',
-                maxHeight: '85vh',
-                padding: '0',
-                backgroundColor: '#f5f5f5',
-                borderTopLeftRadius: '16px',
-                borderTopRightRadius: '16px',
-                overflow: 'hidden'
-            }}
+            bodyStyle={POPUP_BODY_STYLE}
         >
-            {/* 标题栏 */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '16px 20px',
-                backgroundColor: '#fff',
-                borderBottom: '1px solid #f0f0f0',
-                position: 'sticky',
-                top: 0,
-                zIndex: 10
-            }}>
+            {/* 標題列 */}
+            <div style={HEADER_STYLE}>
                 <span style={{ fontSize: '18px', fontWeight: 'bold' }}>地下錢莊</span>
                 <CloseOutline 
                     fontSize={22}
@@ -200,12 +245,8 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                 />
             </div>
 
-            {/* 内容区域 */}
-            <div style={{ 
-                padding: '24px 16px',
-                overflowY: 'auto',
-                maxHeight: 'calc(85vh - 60px)'
-            }}>
+            {/* 內容區域 */}
+            <div style={CONTENT_STYLE}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
                     {/* ==================== 黑心商人圖片 & 對話 ==================== */}
                     <div style={{ 
@@ -224,6 +265,7 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                                     height: '100%', 
                                     objectFit: 'contain'
                                 }}
+                                loading="lazy"
                                 onError={(e) => {
                                     e.currentTarget.src = '/images/avatar_00.webp'; // Fallback
                                 }}
@@ -263,20 +305,13 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                         margin: '12px 0'
                     }}>
                         <span style={{ fontSize: '14px', color: '#666' }}>模式:</span>
-                        <Switch
+                        <DualColorSwitch
                             checked={mode === 'BORROW'}
-                            onChange={(checked) => {
-                                const nextMode: 'BORROW' | 'REPAY' = checked ? 'BORROW' : 'REPAY';
-                                setMode(nextMode);
-                                const nextMax = nextMode === 'BORROW' ? Math.max(0, remainingLimit) : repayMax;
-                                const nextStep = 0.01;
-                                const resetVal = nextMax > 0 ? Math.min(Math.max(nextStep, 0), nextMax) : 0; // 切換時預設回最小刻度
-                                setAmount(resetVal);
-                                setAmountInput(resetVal > 0 ? formatAmount(resetVal) : '');
-                            }}
+                            onChange={handleModeChange}
                             checkedText="借"
                             uncheckedText="還"
-                            style={{ '--checked-color': mode === 'BORROW' ? '#1677ff' : '#faad14' } as React.CSSProperties}
+                            checkedColor="#1677ff"
+                            uncheckedColor="#ff8f1f"
                         />
                     </div>
 
@@ -331,10 +366,9 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                                     min={0}
                                     max={sliderMax}
                                     step={sliderStep}
-                                    ticks
                                     disabled={sliderMax <= 0}
                                     value={Math.min(amount, sliderMax)}
-                                    onChange={(val) => handleSliderChange(val as number)}
+                                    onChange={handleSliderChange}
                                 />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
                                     <span>0</span>

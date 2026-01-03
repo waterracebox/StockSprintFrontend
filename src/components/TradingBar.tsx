@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Toast, Dialog, Modal, Switch, Slider } from 'antd-mobile';
+import { Button, Toast, Dialog, Modal, Slider } from 'antd-mobile';
 import { QuestionCircleOutline, CloseOutline } from 'antd-mobile-icons';
 import { Socket } from 'socket.io-client';
 import LoanSharkModal from './LoanSharkModal';
+import DualColorSwitch from './common/DualColorSwitch';
 
 interface TradingBarProps {
     socket: Socket | null;
@@ -425,12 +426,13 @@ const TradingBar: React.FC<TradingBarProps> = ({
                         marginBottom: '12px'
                     }}>
                         <span style={{ fontSize: '14px', color: '#666' }}>模式:</span>
-                        <Switch
+                        <DualColorSwitch
                             checked={spotMode === 'BUY'}
                             onChange={handleSpotModeChange}
                             checkedText="買"
                             uncheckedText="賣"
-                            style={{ '--checked-color': spotMode === 'BUY' ? '#00b578' : '#ff3141' } as React.CSSProperties}
+                            checkedColor="#00b578"
+                            uncheckedColor="#ff3141"
                         />
                     </div>
 

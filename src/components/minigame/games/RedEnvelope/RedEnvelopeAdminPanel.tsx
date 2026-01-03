@@ -286,7 +286,7 @@ const RedEnvelopeAdminPanel: React.FC<Props> = ({ status, socket, allowGuest, se
                     <Button
                         color='primary'
                         onClick={handleInitGame}
-                        disabled={isRedEnvelope}
+                        disabled={isRedEnvelope || status.gameType !== 'NONE'}
                         style={{ width: 230, maxWidth: '100%' }}
                     >
                         初始化遊戲 (進入待機)
