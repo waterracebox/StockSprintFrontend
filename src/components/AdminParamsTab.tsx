@@ -112,8 +112,8 @@ const AdminParamsTab: React.FC = () => {
         const defaults = {
             timeRatio: 60,
             totalDays: 120,
-            initialPrice: 200,
-            initialCash: 50,
+            initialPrice: 50,
+            initialCash: 200,
             maxLeverage: 10,
             dailyInterestRate: 0.0001,
             maxLoanAmount: 1000,
