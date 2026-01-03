@@ -16,13 +16,14 @@ export interface MiniGameOverlayProps {
     state: MiniGameSyncState | null;
     visible: boolean;
     totalAssets: number;
+    userCash: number; // 【新增】使用者當下現金
     currentPrice: number;
     onCollapse: () => void;
     socket: Socket | null;
     selfUserId?: number | null;
 }
 
-const MiniGameOverlay: React.FC<MiniGameOverlayProps> = ({ state, visible, totalAssets, currentPrice, onCollapse, socket, selfUserId }) => {
+const MiniGameOverlay: React.FC<MiniGameOverlayProps> = ({ state, visible, totalAssets, userCash, currentPrice, onCollapse, socket, selfUserId }) => {
     if (!visible || !state || state.gameType === 'NONE') return null;
 
     switch (state.gameType) {
@@ -31,6 +32,7 @@ const MiniGameOverlay: React.FC<MiniGameOverlayProps> = ({ state, visible, total
                 <RedEnvelopeUserView
                     state={state}
                     totalAssets={totalAssets}
+                    userCash={userCash}
                     currentPrice={currentPrice}
                     onCollapse={onCollapse}
                     socket={socket}
@@ -42,6 +44,7 @@ const MiniGameOverlay: React.FC<MiniGameOverlayProps> = ({ state, visible, total
                 <QuizUserView
                     state={state}
                     totalAssets={totalAssets}
+                    userCash={userCash}
                     currentPrice={currentPrice}
                     onCollapse={onCollapse}
                     socket={socket}
@@ -53,6 +56,7 @@ const MiniGameOverlay: React.FC<MiniGameOverlayProps> = ({ state, visible, total
                 <MinorityUserView
                     state={state}
                     totalAssets={totalAssets}
+                    userCash={userCash}
                     currentPrice={currentPrice}
                     onCollapse={onCollapse}
                     socket={socket}

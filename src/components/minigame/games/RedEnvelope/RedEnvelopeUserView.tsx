@@ -23,6 +23,7 @@ type Packet = { index: number; name?: string; isTaken?: boolean; ownerId?: strin
 interface Props {
     state: MiniGameSyncState;
     totalAssets: number;
+    userCash: number; // 使用者當下現金
     currentPrice: number;
     onCollapse: () => void;
     socket: Socket | null;

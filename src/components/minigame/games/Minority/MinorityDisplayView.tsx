@@ -156,26 +156,99 @@ const MinorityDisplayView: React.FC<Props> = ({ miniGame }) => {
         );
     }
 
-    // ========== GAMING 階段（預留）==========
+    // ========== GAMING 階段：垂直列表（預備長條圖）==========
     if (normalizedPhase === 'GAMING') {
+        const questionTitle = miniGame.data?.question?.title || '';
+        const options = miniGame.data?.question?.options || [];
+        const duration = (miniGame.data?.question?.duration || 10) * 1000;
+        const endTime = miniGame.endTime || 0;
+
         return (
             <div
                 style={{
                     height: '100vh',
                     width: '100vw',
+                    boxSizing: 'border-box',
                     backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.6) 100%), url('/background/minority.webp')`,
                     backgroundSize: 'cover',
                     backgroundRepeat: 'no-repeat',
                     backgroundPosition: 'center',
                     color: '#fff',
+                    padding: 'clamp(24px, 4vh, 48px)',
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    overflow: 'hidden',
+                    gap: 'clamp(16px, 3vh, 32px)',
                 }}
             >
-                <h1 style={{ margin: 0, fontSize: 64, fontWeight: 900, whiteSpace: 'nowrap' }}>⚖️ 全場少數決</h1>
-                <div style={{ fontSize: 28, marginTop: 16, opacity: 0.85 }}>下注階段（下一步實作）</div>
+                {/* Header */}
+                <div style={{ flex: '0 0 auto', textAlign: 'center' }}>
+                    <h1 style={{ margin: 0, fontSize: 'clamp(36px, 4.5vw, 64px)', fontWeight: 900 }}>⚖️ 全場少數決</h1>
+                </div>
+
+                {/* Question */}
+                <div style={{ 
+                    flex: '0 0 auto',
+                    fontSize: 'clamp(20px, 2.5vw, 32px)',
+                    fontWeight: 600,
+                    textAlign: 'center',
+                    lineHeight: 1.3,
+                }}>
+                    {questionTitle}
+                </div>
+
+                {/* Progress Bar */}
+                <div style={{ flex: '0 0 auto' }}>
+                    <ProgressBar targetEndTime={endTime} totalDuration={duration} color="#8B4513" height={16} />
+                </div>
+
+                {/* Options (Vertical List) - 預備長條圖容器 */}
+                <div style={{ 
+                    flex: 1, 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: 'clamp(12px, 2vh, 24px)',
+                    minHeight: 0,
+                }}>
+                    {options.map((opt: string, idx: number) => {
+                        const optionLetter = String.fromCharCode(65 + idx);
+                        return (
+                            <div
+                                key={idx}
+                                style={{
+                                    flex: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    padding: 'clamp(12px, 2vh, 24px)',
+                                    background: 'rgba(255,255,255,0.08)',
+                                    borderRadius: 12,
+                                    fontSize: 'clamp(18px, 2.2vw, 28px)',
+                                    fontWeight: 600,
+                                    border: '1px solid rgba(255,255,255,0.2)',
+                                }}
+                            >
+                                <div style={{ marginRight: 16, fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 900 }}>
+                                    {optionLetter}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    {opt}
+                                </div>
+                                {/* 【預留】長條圖容器（結算時顯示人數） */}
+                                <div style={{ width: 0, height: 0 }} />
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Status Text */}
+                <div style={{ 
+                    flex: '0 0 auto', 
+                    fontSize: 'clamp(16px, 1.8vw, 22px)', 
+                    textAlign: 'center', 
+                    opacity: 0.7 
+                }}>
+                    下注進行中...
+                </div>
             </div>
         );
     }

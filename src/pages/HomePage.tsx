@@ -434,6 +434,16 @@ const HomePage: React.FC = () => {
                 debt: payload.debt,
                 dailyBorrowed: payload.dailyBorrowed,
             });
+            // 【新增】同時更新 user 狀態中的 cash, stocks, debt（確保小遊戲下注上限即時更新）
+            setUser((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    cash: payload.cash,
+                    stocks: payload.stocks,
+                    debt: payload.debt,
+                };
+            });
         });
 
         // 【新增】7. 地下錢莊參數更新（Admin 修改時推送）
@@ -1541,6 +1551,7 @@ const HomePage: React.FC = () => {
                 state={miniGameState}
                 visible={isMiniGameOverlayVisible && !!miniGameState && miniGameState.gameType !== 'NONE'}
                 totalAssets={totalAssets}
+                userCash={user?.cash || 0}
                 currentPrice={currentPrice}
                 onCollapse={() => setIsMiniGameOverlayVisible(false)}
                 socket={socket}
