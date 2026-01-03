@@ -362,7 +362,38 @@ const RedEnvelopeAdminPanel: React.FC<Props> = ({ status, socket, allowGuest, se
                             <Input type='number' />
                         </Form.Item>
                     )}
-                    <Form.Item name='displayOrder' label='價值排序'>
+                    <Form.Item 
+                        name='displayOrder' 
+                        label={
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                價值排序
+                                <span
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        Dialog.alert({
+                                            content: '【開獎順序規則】\n\n• 數字越大 = 越先開獎 = 價值較低\n• 數字越小 = 越後開獎 = 價值越高\n• 設為 0 = 最後開獎（安慰獎）\n\n開獎流程：\n1. 先開沒價值的獎項\n2. 再開中等價值獎項\n3. 最後開最大獎\n4. 最後才開安慰獎\n\n範例順序：\n10 = 小獎（最先開）\n5 = 中獎\n2 = 二獎\n1 = 大獎（倒數第二）\n0 = 安慰獎（最後開）',
+                                            confirmText: '知道了',
+                                        });
+                                    }}
+                                    style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        width: 16,
+                                        height: 16,
+                                        borderRadius: '50%',
+                                        border: '1px solid #999',
+                                        color: '#999',
+                                        fontSize: 12,
+                                        cursor: 'pointer',
+                                        lineHeight: 1,
+                                    }}
+                                >
+                                    ?
+                                </span>
+                            </span>
+                        }
+                    >
                         <Input type='number' />
                     </Form.Item>
                     <Form.Item name='isActive' label='啟用' initialValue={'true'}>
