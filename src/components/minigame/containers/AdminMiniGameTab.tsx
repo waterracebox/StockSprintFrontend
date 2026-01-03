@@ -3,6 +3,7 @@ import { Tabs, Card, Space, Tag, Button, Toast, Dialog } from 'antd-mobile';
 import { io, Socket } from 'socket.io-client';
 import RedEnvelopeAdminPanel from '../games/RedEnvelope/RedEnvelopeAdminPanel';
 import QuizAdminPanel from '../games/Quiz/QuizAdminPanel';
+import MinorityAdminPanel from '../games/Minority/MinorityAdminPanel';
 import type { MiniGameSyncState } from './MiniGameOverlay';
 
 const AdminMiniGameTab: React.FC = () => {
@@ -116,7 +117,7 @@ const AdminMiniGameTab: React.FC = () => {
                     <QuizAdminPanel status={status} socket={socketRef.current} />
                 </Tabs.Tab>
                 <Tabs.Tab title='少數決' key='minority'>
-                    <div style={{ padding: '12px 0', color: '#888' }}>即將開放</div>
+                    <MinorityAdminPanel status={status} socket={socketRef.current} />
                 </Tabs.Tab>
             </Tabs>
         </div>

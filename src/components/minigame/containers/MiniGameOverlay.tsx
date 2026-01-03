@@ -1,6 +1,7 @@
 import React from 'react';
 import RedEnvelopeUserView from '../games/RedEnvelope/RedEnvelopeUserView';
 import QuizUserView from '../games/Quiz/QuizUserView';
+import MinorityUserView from '../games/Minority/MinorityUserView';
 import type { Socket } from 'socket.io-client';
 
 export interface MiniGameSyncState {
@@ -39,6 +40,17 @@ const MiniGameOverlay: React.FC<MiniGameOverlayProps> = ({ state, visible, total
         case 'QUIZ':
             return (
                 <QuizUserView
+                    state={state}
+                    totalAssets={totalAssets}
+                    currentPrice={currentPrice}
+                    onCollapse={onCollapse}
+                    socket={socket}
+                    selfUserId={selfUserId}
+                />
+            );
+        case 'MINORITY':
+            return (
+                <MinorityUserView
                     state={state}
                     totalAssets={totalAssets}
                     currentPrice={currentPrice}
