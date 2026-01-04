@@ -3,6 +3,88 @@ import { Button, Card, Dialog, Form, Input, List, Popup, Space, Toast } from 'an
 import type { Socket } from 'socket.io-client';
 import type { MiniGameSyncState } from '../../containers/MiniGameOverlay';
 import { quizService, type QuizQuestion, type QuizPayload } from '../../../../services/quizService';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// 【新增】Sortable Item 組件
+interface SortableItemProps {
+    question: QuizQuestion;
+    index: number;
+    isQuiz: boolean;
+    onEdit: (q: QuizQuestion) => void;
+    onDelete: (id: number) => void;
+}
+
+const SortableItem: React.FC<SortableItemProps> = ({ question, index, isQuiz, onEdit, onDelete }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: question.id, disabled: isQuiz });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        cursor: isQuiz ? 'not-allowed' : 'grab',
+    };
+
+    return (
+        <div ref={setNodeRef} style={style}>
+            <List.Item
+                style={{ paddingLeft: 0, paddingRight: 0}}
+                prefix={
+                    <div
+                        {...attributes}
+                        {...(isQuiz ? {} : listeners)}
+                        style={{
+                            touchAction: 'none',
+                            cursor: isQuiz ? 'not-allowed' : 'grab',
+                            fontSize: 16,
+                            padding: '0 4px',
+                            marginRight: 4,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 20,
+                            userSelect: 'none',
+                            color: isQuiz ? '#cccccc' : '#000000',
+                        }}
+                    >
+                        ☰
+                    </div>
+                }
+                description={`答案: ${question.correctAnswer} | 時間: ${question.duration}秒`}
+                extra={
+                    <Space direction='vertical' style={{ gap: 4 }}>
+                        <Button size='mini' color='primary' fill='outline' onClick={() => onEdit(question)} disabled={isQuiz}>
+                            編輯
+                        </Button>
+                        <Button size='mini' color='danger' fill='outline' onClick={() => onDelete(question.id)} disabled={isQuiz}>
+                            刪除
+                        </Button>
+                    </Space>
+                }
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ 
+                        fontWeight: 'bold', 
+                        color: '#1677ff',
+                        minWidth: 24,
+                    }}>
+                        #{index + 1}
+                    </span>
+                    <span>{question.question}</span>
+                </div>
+            </List.Item>
+        </div>
+    );
+};
 
 interface Props {
     status: MiniGameSyncState;
@@ -23,6 +105,14 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
     // 【新增】判斷是否可以選擇/發布題目（僅在 IDLE 或 RESULT 階段）
     const normalizedPhase = (status.phase || '').toUpperCase();
     const canPublish = normalizedPhase === 'IDLE' || normalizedPhase === 'RESULT';
+
+    // 【新增】Drag & Drop Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     const loadQuestions = async () => {
         try {
@@ -171,6 +261,31 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
         }
     };
 
+    // 【新增】處理拖拽結束
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (!over || active.id === over.id) return;
+
+        const oldIndex = questions.findIndex((q) => q.id === active.id);
+        const newIndex = questions.findIndex((q) => q.id === over.id);
+
+        const reorderedQuestions = arrayMove(questions, oldIndex, newIndex);
+        
+        // 樂觀更新 UI
+        setQuestions(reorderedQuestions);
+
+        // 呼叫 API 更新 sortOrder
+        try {
+            const ids = reorderedQuestions.map((q) => q.id);
+            await quizService.reorderQuestions(ids);
+            Toast.show({ icon: 'success', content: '已更新排序' });
+        } catch (error: any) {
+            Toast.show({ icon: 'fail', content: '更新排序失敗' });
+            loadQuestions(); // 失敗時重新載入
+        }
+    };
+
     return (
         <div style={{ padding: '16px 0' }}>
             <Space direction='vertical' block>
@@ -187,7 +302,7 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
                             }}>
                                 <strong>目前選擇：</strong>
                                 {selectedQuestionId 
-                                    ? `Q${selectedQuestionId}: ${questions.find(q => q.id === selectedQuestionId)?.question.substring(0, 40) || ''}...`
+                                    ? `#${questions.findIndex(q => q.id === selectedQuestionId) + 1}. ${questions.find(q => q.id === selectedQuestionId)?.question.substring(0, 40) || ''}...`
                                     : '尚未選擇'
                                 }
                             </div>
@@ -200,7 +315,7 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
                                         content: (
                                             <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                                                 <List>
-                                                    {questions.map((q) => (
+                                                    {questions.map((q, index) => (
                                                         <List.Item
                                                             key={q.id}
                                                             clickable
@@ -213,7 +328,7 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
                                                                 borderLeft: selectedQuestionId === q.id ? '3px solid #1677ff' : 'none'
                                                             }}
                                                         >
-                                                            <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>Q{q.id}</div>
+                                                            <div style={{ fontSize: 12, color: '#999', marginBottom: 4 }}>#{index + 1}</div>
                                                             <div>{q.question}</div>
                                                         </List.Item>
                                                     ))}
@@ -252,27 +367,30 @@ const QuizAdminPanel: React.FC<Props> = ({ status, socket }) => {
                     }
                 >
                     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                        <List>
-                            {questions.map((q) => (
-                                <List.Item
-                                    key={q.id}
-                                    description={`答案: ${q.correctAnswer} | 時間: ${q.duration}秒`}
-                                    extra={
-                                        <Space direction='vertical' style={{ gap: 4 }}>
-                                            <Button size='mini' color='primary' fill='outline' onClick={() => handleOpenEdit(q)} disabled={isQuiz}>
-                                                編輯
-                                            </Button>
-                                            <Button size='mini' color='danger' fill='outline' onClick={() => handleDelete(q.id)} disabled={isQuiz}>
-                                                刪除
-                                            </Button>
-                                        </Space>
-                                    }
-                                >
-                                    {q.question}
-                                </List.Item>
-                            ))}
-                            {questions.length === 0 && <List.Item>尚無題目，請新增。</List.Item>}
-                        </List>
+                        <DndContext
+                            sensors={sensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleDragEnd}
+                        >
+                            <SortableContext
+                                items={questions.map((q) => q.id)}
+                                strategy={verticalListSortingStrategy}
+                            >
+                                <List>
+                                    {questions.map((q, index) => (
+                                        <SortableItem
+                                            key={q.id}
+                                            question={q}
+                                            index={index}
+                                            isQuiz={isQuiz}
+                                            onEdit={handleOpenEdit}
+                                            onDelete={handleDelete}
+                                        />
+                                    ))}
+                                    {questions.length === 0 && <List.Item>尚無題目，請新增。</List.Item>}
+                                </List>
+                            </SortableContext>
+                        </DndContext>
                     </div>
                 </Card>
 

@@ -10,6 +10,7 @@ export interface QuizQuestion {
   correctAnswer: string;
   rewards: { first: number; second: number; third: number; others: number };
   duration: number;
+  sortOrder: number;
   createdAt: string;
 }
 
@@ -41,5 +42,9 @@ export const quizService = {
 
   async deleteQuestion(id: number): Promise<void> {
     await apiClient.delete(`/admin/games/quiz/${id}`);
+  },
+
+  async reorderQuestions(ids: number[]): Promise<void> {
+    await apiClient.patch('/admin/games/quiz/reorder', { ids });
   },
 };
