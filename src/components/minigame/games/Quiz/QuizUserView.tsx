@@ -32,20 +32,22 @@ const QuizUserView: React.FC<Props> = ({ state, totalAssets, currentPrice, onCol
         }
     }, [selfUserId, state.data?.answers]);
 
-    // COUNTDOWN 階段倒數
+    // 【新增】監聽伺服器倒數廣播
     useEffect(() => {
-        if (normalizedPhase !== 'COUNTDOWN') return;
+        if (!socket || normalizedPhase !== 'COUNTDOWN') return;
 
-        const endTime = state.endTime || 0;
-        const tick = () => {
-            const remaining = Math.ceil((endTime - Date.now()) / 1000);
-            setCountdown(Math.max(0, remaining));
+        // 初始化倒數為 3
+        setCountdown(3);
+
+        const handler = (data: { countdown: number }) => {
+            setCountdown(data.countdown);
         };
 
-        tick();
-        const interval = setInterval(tick, 100);
-        return () => clearInterval(interval);
-    }, [normalizedPhase, state.endTime]);
+        socket.on('MINIGAME_COUNTDOWN', handler);
+        return () => { 
+            socket.off('MINIGAME_COUNTDOWN', handler); 
+        };
+    }, [socket, normalizedPhase]);
 
     // 【修改】重置選擇：僅當題目變更時重置
     useEffect(() => {
@@ -398,6 +400,9 @@ const QuizUserView: React.FC<Props> = ({ state, totalAssets, currentPrice, onCol
                                     transition: 'all 0.2s ease',
                                     transform: isSelected ? 'scale(1.05)' : 'scale(1)',
                                     boxShadow: isSelected ? '0 0 20px rgba(255, 193, 7, 0.6)' : 'none',
+                                    overflow: 'auto',
+                                    wordBreak: 'break-all',
+                                    lineHeight: 1.4,
                                     opacity: isSubmitted && !isSelected ? 0.5 : 1, // 【淡化未選擇的選項】
                                 }}
                             >

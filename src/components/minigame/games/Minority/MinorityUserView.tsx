@@ -42,20 +42,22 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
         lastPhaseRef.current = currentPhase;
     }, [normalizedPhase]);
 
-    // COUNTDOWN 階段倒數
+    // 【新增】監聽伺服器倒數廣播
     useEffect(() => {
-        if (normalizedPhase !== 'COUNTDOWN') return;
+        if (!socket || normalizedPhase !== 'COUNTDOWN') return;
 
-        const endTime = state.endTime || 0;
-        const tick = () => {
-            const remaining = Math.ceil((endTime - Date.now()) / 1000);
-            setCountdown(Math.max(0, remaining));
+        // 初始化倒數為 3
+        setCountdown(3);
+
+        const handler = (data: { countdown: number }) => {
+            setCountdown(data.countdown);
         };
 
-        tick();
-        const interval = setInterval(tick, 100);
-        return () => clearInterval(interval);
-    }, [normalizedPhase, state.endTime]);
+        socket.on('MINIGAME_COUNTDOWN', handler);
+        return () => { 
+            socket.off('MINIGAME_COUNTDOWN', handler); 
+        };
+    }, [socket, normalizedPhase]);
 
     // 【修改】從 userCash 取得現金上限（而非 totalAssets），使用 Math.floor 向下取整避免超額下注
     useEffect(() => {
@@ -269,7 +271,7 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
                                 onClick={() => setSelectedOption(optionLetter)}
                                 style={{
                                     background: isSelected ? 'linear-gradient(135deg, #8B4513, #A0522D)' : 'rgba(255,255,255,0.12)',
-                    color: '#fff',
+                                    color: '#fff',
                                     border: isSelected ? '3px solid #D2691E' : '1px solid rgba(255,255,255,0.3)',
                                     borderRadius: 12,
                                     fontSize: 16,
@@ -283,6 +285,9 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
                                     transition: 'all 0.2s ease',
                                     transform: isSelected ? 'scale(1.05)' : 'scale(1)',
                                     boxShadow: isSelected ? '0 0 20px rgba(210, 105, 30, 0.6)' : 'none',
+                                    overflow: 'auto',
+                                    wordBreak: 'break-all',
+                                    lineHeight: 1.4,
                                 }}
                             >
                                 {optionLetter}. {opt}
@@ -334,9 +339,13 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
                             }}
                         />
                     </div>
-                    {!selectedOption && (
+                    {!selectedOption ? (
                         <div style={{ marginTop: 8, fontSize: 12, opacity: 0.6, textAlign: 'center' }}>
                             請先選擇選項
+                        </div>
+                    ) : (
+                        <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8, textAlign: 'center', color: '#FFD700' }}>
+                            💡 貼心提醒: 記得要下注
                         </div>
                     )}
                 </div>
