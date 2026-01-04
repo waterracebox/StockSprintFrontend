@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Dialog, Toast } from 'antd-mobile';
+import React, { useState, useEffect, useRef } from 'react';
+import { Button, Dialog, Toast, Switch } from 'antd-mobile';
 import apiClient from '../services/apiClient';
 
 interface GameState {
@@ -15,6 +15,12 @@ const AdminControlTab: React.FC = () => {
         currentDay: 0,
     });
     const [loading, setLoading] = useState(false);
+
+    // 【新增】暖機相關狀態
+    const [isAutoWarmup, setIsAutoWarmup] = useState<boolean>(true);
+    const [warmupLatency, setWarmupLatency] = useState<number | null>(null);
+    const warmupIntervalRef = useRef<number | null>(null);
+    const [isWarmupExpanded, setIsWarmupExpanded] = useState<boolean>(false); // 【新增】預設收合
 
     // 載入遊戲狀態
     const fetchGameState = async () => {
@@ -38,6 +44,74 @@ const AdminControlTab: React.FC = () => {
         return () => clearInterval(interval);
     }, []);
 
+    // 【新增】執行暖機請求的函數
+    const performWarmup = async () => {
+        try {
+            const start = performance.now();
+            const response = await apiClient.get('/admin/system/warmup');
+            const end = performance.now();
+            const clientLatency = Math.round(end - start);
+            
+            setWarmupLatency(clientLatency);
+            console.log(`[Warmup] 完成，延遲: ${clientLatency}ms (伺服器回報: ${response.data.duration}ms)`);
+        } catch (error: any) {
+            console.error('[Warmup] 失敗:', error);
+            Toast.show({ icon: 'fail', content: '暖機失敗' });
+            setWarmupLatency(null);
+        }
+    };
+
+    // 【新增】暖機按鈕處理器
+    const handleWarmup = () => {
+        // 清除任何現有的 interval
+        if (warmupIntervalRef.current) {
+            clearInterval(warmupIntervalRef.current);
+            warmupIntervalRef.current = null;
+        }
+
+        if (isAutoWarmup) {
+            // 自動模式：立即執行一次，然後每 10 秒執行一次
+            performWarmup();
+            warmupIntervalRef.current = setInterval(performWarmup, 10000);
+            Toast.show({ icon: 'success', content: '已啟動自動暖機 (每 10 秒)' });
+        } else {
+            // 手動模式：僅執行一次
+            performWarmup();
+            Toast.show({ icon: 'success', content: '已執行單次暖機' });
+        }
+    };
+
+    // 【新增】停止暖機的安全函數
+    const stopWarmup = () => {
+        if (warmupIntervalRef.current) {
+            clearInterval(warmupIntervalRef.current);
+            warmupIntervalRef.current = null;
+            console.log('[Warmup] 已停止自動暖機');
+        }
+    };
+
+    // 【新增】組件卸載時清理 interval
+    useEffect(() => {
+        return () => {
+            stopWarmup();
+        };
+    }, []);
+
+    // 【新增】延遲顏色計算
+    const getLatencyColor = () => {
+        if (warmupLatency === null) return '#999';
+        if (warmupLatency < 100) return '#52c41a'; // 綠色
+        if (warmupLatency < 500) return '#faad14'; // 黃色
+        return '#ff4d4f'; // 紅色
+    };
+
+    const getLatencyEmoji = () => {
+        if (warmupLatency === null) return '❓';
+        if (warmupLatency < 100) return '🔥';
+        if (warmupLatency < 500) return '⚠️';
+        return '❄️';
+    };
+
     // 開始遊戲
     const handleStart = async () => {
         if (gameState.currentDay > 0) {
@@ -46,6 +120,9 @@ const AdminControlTab: React.FC = () => {
             });
             if (!confirmed) return;
         }
+
+        // 【新增】停止暖機
+        stopWarmup();
 
         setLoading(true);
         try {
@@ -66,6 +143,9 @@ const AdminControlTab: React.FC = () => {
         });
         if (!confirmed) return;
 
+        // 【新增】停止暖機
+        stopWarmup();
+
         setLoading(true);
         try {
             await apiClient.post('/admin/game/stop');
@@ -80,6 +160,9 @@ const AdminControlTab: React.FC = () => {
 
     // 恢復遊戲
     const handleResume = async () => {
+        // 【新增】停止暖機
+        stopWarmup();
+
         setLoading(true);
         try {
             await apiClient.post('/admin/game/resume');
@@ -98,6 +181,9 @@ const AdminControlTab: React.FC = () => {
             content: '重啟會清空所有玩家資產與合約，確定嗎？',
         });
         if (!confirmed) return;
+
+        // 【新增】停止暖機
+        stopWarmup();
 
         setLoading(true);
         try {
@@ -140,6 +226,82 @@ const AdminControlTab: React.FC = () => {
             <h3 style={{ marginBottom: '16px', fontSize: '18px', fontWeight: 'bold' }}>
                 遊戲控制
             </h3>
+
+            {/* 【新增】系統暖機控制區 */}
+            <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#fff7e6', borderRadius: '8px', border: '1px solid #ffd591' }}>
+                <div 
+                    onClick={() => setIsWarmupExpanded(!isWarmupExpanded)}
+                    style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        marginBottom: isWarmupExpanded ? '12px' : '0'
+                    }}
+                >
+                    <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#d46b08' }}>
+                        🔥 系統預熱 (System Warm-up)
+                    </h4>
+                    <span style={{ fontSize: '18px', color: '#d46b08' }}>
+                        {isWarmupExpanded ? '▲' : '▼'}
+                    </span>
+                </div>
+                
+                {isWarmupExpanded && (
+                    <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                            <span style={{ fontSize: '14px' }}>自動模式 (每 10 秒)：</span>
+                            <Switch
+                                checked={isAutoWarmup}
+                                onChange={(checked) => {
+                                    setIsAutoWarmup(checked);
+                                    // 切換開關時停止現有的 interval
+                                    stopWarmup();
+                                }}
+                            />
+                        </div>
+
+                        <Button
+                            block
+                            color='primary'
+                            size='middle'
+                            onClick={handleWarmup}
+                            style={{ marginBottom: '12px' }}
+                        >
+                            🔥 啟動暖機 (Warm Up)
+                        </Button>
+
+                        {warmupLatency !== null && (
+                            <div
+                                style={{
+                                    padding: '12px',
+                                    backgroundColor: '#f5f5f5',
+                                    borderRadius: '8px',
+                                    textAlign: 'center',
+                                    fontSize: '16px',
+                                    marginBottom: '12px',
+                                }}
+                            >
+                                <span>系統溫度：</span>
+                                <span
+                                    style={{
+                                        fontWeight: 'bold',
+                                        color: getLatencyColor(),
+                                        marginLeft: '8px',
+                                    }}
+                                >
+                                    {getLatencyEmoji()} {warmupLatency}ms
+                                </span>
+                            </div>
+                        )}
+
+                        <div style={{ fontSize: '12px', color: '#8c8c8c', lineHeight: '1.5' }}>
+                            💡 提示：遊戲開始前5~10分鐘建議先執行暖機，可減少首次請求延遲。
+                            自動模式會持續保持連線池活躍，直到開始遊戲為止。
+                        </div>
+                    </>
+                )}
+            </div>
 
             <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0f0f0', borderRadius: '8px' }}>
                 <div style={{ fontSize: '14px', color: '#666' }}>

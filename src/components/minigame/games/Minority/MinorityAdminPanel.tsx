@@ -157,6 +157,7 @@ const MinorityAdminPanel: React.FC<Props> = ({ status, socket }) => {
             return;
         }
 
+
         socket.emit('ADMIN_MINIGAME_ACTION', { 
             type: 'INIT_GAME', 
             gameType: 'MINORITY',
