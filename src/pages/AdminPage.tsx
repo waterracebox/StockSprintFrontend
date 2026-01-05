@@ -151,24 +151,35 @@ const AdminPage: React.FC = () => {
                 Admin 後台
             </NavBar>
 
-            {/* Tab 切換 */}
-            <Tabs activeKey={activeKey} onChange={handleTabChange}>
-                <Tabs.Tab title='遊戲控制' key='control'>
-                    <AdminControlTab />
-                </Tabs.Tab>
-                <Tabs.Tab title='遊戲參數' key='params'>
-                    <AdminParamsTab />
-                </Tabs.Tab>
-                <Tabs.Tab title='玩家管理' key='users'>
-                    <AdminUsersTab />
-                </Tabs.Tab>
-                <Tabs.Tab title='遊戲劇本' key='script'>
-                    <AdminScriptTab />
-                </Tabs.Tab>
-                <Tabs.Tab title='小遊戲' key='minigame'>
-                    <AdminMiniGameTab />
-                </Tabs.Tab>
-            </Tabs>
+            {/* Tab 切換 - 使用 CSS class 實現 sticky */}
+            <div className="admin-tabs-container">
+                <Tabs activeKey={activeKey} onChange={handleTabChange}>
+                    <Tabs.Tab title='遊戲控制' key='control'>
+                        <AdminControlTab />
+                    </Tabs.Tab>
+                    <Tabs.Tab title='遊戲參數' key='params'>
+                        <AdminParamsTab />
+                    </Tabs.Tab>
+                    <Tabs.Tab title='玩家管理' key='users'>
+                        <AdminUsersTab />
+                    </Tabs.Tab>
+                    <Tabs.Tab title='遊戲劇本' key='script'>
+                        <AdminScriptTab />
+                    </Tabs.Tab>
+                    <Tabs.Tab title='小遊戲' key='minigame'>
+                        <AdminMiniGameTab />
+                    </Tabs.Tab>
+                </Tabs>
+            </div>
+
+            <style>{`
+                .admin-tabs-container > .adm-tabs > .adm-tabs-header {
+                    position: sticky;
+                    top: 45px;
+                    z-index: 999;
+                    background-color: #fff;
+                }
+            `}</style>
 
             {/* 監控模態框 */}
             <MonitorModal 

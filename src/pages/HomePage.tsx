@@ -310,15 +310,17 @@ const HomePage: React.FC = () => {
 
         // 小遊戲狀態同步
         const hasInitialMiniGameSyncRef = { current: false } as { current: boolean };
+        const previousGameTypeRef = { current: 'NONE' } as { current: string };
 
         newSocket.on('MINIGAME_SYNC', (payload: MiniGameSyncState) => {
             console.log('[Socket] 小遊戲同步:', payload);
-            const nextPhase = (payload.phase || '').toUpperCase();
             const nextGame = payload.gameType;
+            const prevGame = previousGameTypeRef.current;
 
             // 首次同步（例如頁面 refresh）僅更新狀態，不自動打開 overlay
             if (!hasInitialMiniGameSyncRef.current) {
                 hasInitialMiniGameSyncRef.current = true;
+                previousGameTypeRef.current = nextGame;
                 setMiniGameState(payload);
                 if (nextGame === 'NONE') {
                     setIsMiniGameOverlayVisible(false);
@@ -326,16 +328,23 @@ const HomePage: React.FC = () => {
                 return;
             }
 
-            // 後續同步（如 admin 觸發 INIT/SHUFFLE）才自動打開
-            if (nextGame !== 'NONE') {
+            // 只有在以下情況才自動打開 overlay：
+            // 1. 從 NONE 切換到有遊戲（代表 admin 初始化了遊戲）
+            // 2. 遊戲類型改變（例如從紅包切換到問答）
+            const isGameInitialized = prevGame === 'NONE' && nextGame !== 'NONE';
+            const isGameTypeChanged = prevGame !== 'NONE' && nextGame !== 'NONE' && prevGame !== nextGame;
+
+            if (isGameInitialized || isGameTypeChanged) {
                 setIsMiniGameOverlayVisible(true);
             }
+
+            // 遊戲結束時關閉 overlay
             if (nextGame === 'NONE') {
                 setIsMiniGameOverlayVisible(false);
             }
-            if (nextGame === 'RED_ENVELOPE' && nextPhase === 'IDLE') {
-                setIsMiniGameOverlayVisible(true);
-            }
+
+            // 更新前一次的遊戲類型
+            previousGameTypeRef.current = nextGame;
 
             setMiniGameState(payload);
         });
@@ -1524,7 +1533,8 @@ const HomePage: React.FC = () => {
                 <div style={{ 
                     flex: 1,
                     overflowY: 'auto',
-                    padding: '20px'
+                    padding: '20px',
+                    paddingBottom: 'max(20px, env(safe-area-inset-bottom))'
                 }}>
                     <Grid columns={4} gap={12}>
                         {avatarOptions.map((avatar) => (
