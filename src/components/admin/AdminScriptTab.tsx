@@ -260,6 +260,95 @@ const AdminScriptTab: React.FC = () => {
     }
   };
 
+  // 備份劇本：匯出為 JSON 檔案
+  const handleExportScript = async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get('/admin/script/export', {
+        responseType: 'blob', // 重要：指定為 blob 以處理檔案下載
+      });
+
+      // 從 Content-Disposition header 取得檔名（若後端有設定）
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = 'stock_script_backup.json';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/);
+        if (match) filename = match[1];
+      }
+
+      // 建立下載連結
+      const blob = new Blob([response.data], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      Toast.show({ icon: 'success', content: '劇本已匯出' });
+    } catch (error: any) {
+      Toast.show({ icon: 'fail', content: error?.response?.data?.error || '匯出失敗' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 還原劇本：上傳 JSON 檔案
+  const handleImportScript = async () => {
+    // 建立隱藏的檔案選擇器
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        // 讀取檔案內容
+        const text = await file.text();
+        const scriptData = JSON.parse(text);
+
+        // 基本驗證
+        if (!Array.isArray(scriptData)) {
+          Toast.show({ icon: 'fail', content: '檔案格式錯誤：需為陣列' });
+          return;
+        }
+
+        if (scriptData.length === 0) {
+          Toast.show({ icon: 'fail', content: '檔案為空，無法匯入' });
+          return;
+        }
+
+        // 確認對話框
+        const confirmed = await Dialog.confirm({
+          content: `這將覆蓋現有所有劇本數據（${scriptData.length} 天），確定要還原嗎？`,
+          confirmText: '確定還原',
+          cancelText: '取消',
+          closeOnMaskClick: false,
+        });
+
+        if (!confirmed) return;
+
+        // 呼叫 API 匯入
+        setLoading(true);
+        await apiClient.post('/admin/script/import', scriptData);
+        Toast.show({ icon: 'success', content: '劇本已還原' });
+        await loadScript(); // 重新載入劇本預覽
+      } catch (error: any) {
+        if (error instanceof SyntaxError) {
+          Toast.show({ icon: 'fail', content: 'JSON 格式錯誤，請檢查檔案' });
+        } else {
+          Toast.show({ icon: 'fail', content: error?.response?.data?.error || '還原失敗' });
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    input.click();
+  };
+
   const priceHistory = useMemo(
     () =>
       script.map((d) => ({
@@ -364,9 +453,33 @@ const AdminScriptTab: React.FC = () => {
             </Collapse.Panel>
           </Collapse>
 
-          <Button block type='button' color='primary' loading={loading} style={{ marginTop: 16 }} onClick={handleGenerateClick}>
-            產生股票數據
-          </Button>
+          <div style={{ display: 'flex', gap: '8px', marginTop: 16 }}>
+            <Button 
+              type='button' 
+              color='primary' 
+              loading={loading} 
+              onClick={handleGenerateClick}
+              style={{ flex: 1 }}
+            >
+              產生股票數據
+            </Button>
+            <Button
+              color='default'
+              loading={loading}
+              onClick={handleExportScript}
+              style={{ minWidth: '48px', padding: '0 12px' }}
+            >
+              📥
+            </Button>
+            <Button
+              color='default'
+              loading={loading}
+              onClick={handleImportScript}
+              style={{ minWidth: '48px', padding: '0 12px' }}
+            >
+              📤
+            </Button>
+          </div>
 
           <div style={{ marginTop: 16 }}>
             <h4 style={{ marginBottom: 8 }}>劇本預覽</h4>
