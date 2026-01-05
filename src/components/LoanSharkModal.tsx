@@ -80,8 +80,8 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
             ? '/images/merchant_normal.webp' 
             : '/images/merchant_happy.webp',
         merchantMessage: merchantState === 'NORMAL' 
-            ? '歡迎光臨' 
-            : '歡迎您下次光臨'
+            ? '我是沈梟。坐吧，你想要多少？' 
+            : '合作愉快，歡迎下次光臨。'
     }), [merchantState]);
 
     // 監聽交易成功事件
@@ -100,6 +100,14 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
             socket.off('TRADE_SUCCESS', handleTradeSuccess);
         };
     }, [socket]);
+
+    // 【Phase 4】追蹤地下錢莊訪問次數
+    useEffect(() => {
+        if (isOpen && socket) {
+            console.log('[LoanShark] Modal 開啟，發送 VISIT_LOAN_SHARK 事件');
+            socket.emit('VISIT_LOAN_SHARK');
+        }
+    }, [isOpen, socket]);
 
     // 使用 useCallback 避免重複創建函數
     const clampAmount = useCallback((value: number) => {

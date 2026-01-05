@@ -7,6 +7,7 @@ import type { MiniGameSyncState } from '../components/MiniGameOverlay';
 import StockChart from '../components/StockChart';
 import Leaderboard from '../components/Leaderboard';
 import MiniGameDisplaySwitch from '../components/minigame/containers/MiniGameDisplaySwitch';
+import EndingCeremony from '../components/display/EndingCeremony'; // 【Phase 4】結束儀式
 import type { StockData, GameState, FullSyncPayload } from '../types/game';
 
 type LeaderboardItem = { userId: number; displayName: string; avatar: string | null; totalAssets: number; rank: number };
@@ -117,6 +118,12 @@ const DisplayPage: React.FC = () => {
             setLeaderboard(payload.data);
         });
 
+        // 【Phase 4】監聽遊戲狀態更新
+        s.on('GAME_STATE_UPDATE', (payload: GameState) => {
+            console.log('[DisplayPage] 收到 GAME_STATE_UPDATE:', payload);
+            setGameState(payload);
+        });
+
         s.on('connect', () => {
             console.log('[Display] Socket 連線成功');
         });
@@ -137,6 +144,10 @@ const DisplayPage: React.FC = () => {
     const currentPrice = stockHistory.length > 0 ? stockHistory[stockHistory.length - 1].price : 0;
     const miniGameView = miniGame ? <MiniGameDisplaySwitch miniGame={miniGame} participants={participants} socket={socketRef.current} /> : null;
 
+    // 【Phase 4】判斷是否顯示結束儀式
+    // 簡化邏輯：遊戲已停止（isGameStarted === false）且有進度（currentDay > 0）→ 顯示儀式
+    const shouldShowCeremony = gameState && !gameState.isGameStarted && gameState.currentDay > 0;
+
     if (isLoading) {
         return (
             <div
@@ -153,6 +164,11 @@ const DisplayPage: React.FC = () => {
                 <span style={{ marginLeft: 8 }}>驗證中...</span>
             </div>
         );
+    }
+
+    // 【Phase 4】顯示結束儀式（優先級高於小遊戲和主遊戲）
+    if (shouldShowCeremony) {
+        return <EndingCeremony />;
     }
 
     if (!miniGame || miniGame.gameType === 'NONE') {

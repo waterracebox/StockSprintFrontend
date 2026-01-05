@@ -1,0 +1,264 @@
+/* components/display/EndingCeremony.css */
+/* 【Phase 4】遊戲結束儀式樣式 */
+
+.ceremony-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #7e22ce 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.ceremony-loading,
+.ceremony-error {
+    color: #fff;
+    font-size: 24px;
+    text-align: center;
+}
+
+.ceremony-slide {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 40px;
+    max-width: 90vw;
+}
+
+.ceremony-title {
+    font-size: 4rem;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.ceremony-subtitle {
+    font-size: 2rem;
+    color: #f0f0f0;
+    text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.5);
+}
+
+.ceremony-award-title {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #ffd700;
+    margin-bottom: 40px;
+    text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.7);
+}
+
+/* Podium 樣式 (Top 3) - 改為橫向等高排列 */
+.podium {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 30px;
+    max-width: 1200px;
+    width: 100%;
+}
+
+.podium-place {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 30px 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s;
+    flex: 1;
+    min-height: 350px;
+}
+
+.podium-place:hover {
+    transform: scale(1.05);
+}
+
+.place-1 {
+    background: linear-gradient(135deg, #ffd700, #ffed4e);
+    box-shadow: 0 8px 40px rgba(255, 215, 0, 0.5);
+}
+
+.place-2 {
+    background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
+}
+
+.place-3 {
+    background: linear-gradient(135deg, #cd7f32, #e6a857);
+}
+
+.podium-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    border: 5px solid #fff;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.podium-rank {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.podium-name {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.podium-value {
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: #2a5298;
+}
+
+/* Spotlight Card 樣式 (單一得獎者) */
+.spotlight-card {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    padding: 60px 80px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    transition: transform 0.3s;
+}
+
+.spotlight-card:hover {
+    transform: scale(1.05);
+}
+
+.spotlight-card.debt {
+    background: linear-gradient(135deg, rgba(220, 38, 38, 0.2), rgba(185, 28, 28, 0.3));
+}
+
+.spotlight-avatar {
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    border: 6px solid #ffd700;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.spotlight-name {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+.spotlight-value {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #f0f0f0;
+    text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.5);
+}
+
+.spotlight-value.red {
+    color: #ff4444;
+    font-weight: bold;
+}
+
+/* 閃爍提示 */
+.ceremony-hint {
+    position: absolute;
+    bottom: 40px;
+    color: #e0e0e0;
+    font-size: 1.2rem;
+}
+
+.blink {
+    animation: blink-animation 1.5s infinite;
+}
+
+@keyframes blink-animation {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .ceremony-title {
+        font-size: 2.5rem;
+    }
+
+    .ceremony-subtitle {
+        font-size: 1.5rem;
+    }
+
+    .ceremony-award-title {
+        font-size: 1.8rem;
+        margin-bottom: 25px;
+    }
+
+    .podium {
+        gap: 15px;
+        padding: 0 15px;
+    }
+
+    .podium-place {
+        min-height: 280px;
+        padding: 20px 10px;
+    }
+
+    .podium-avatar {
+        width: 70px;
+        height: 70px;
+        margin-bottom: 12px;
+        border: 3px solid #fff;
+    }
+
+    .podium-rank {
+        font-size: 1.8rem;
+        margin-bottom: 8px;
+    }
+
+    .podium-name {
+        font-size: 1rem;
+        margin-bottom: 8px;
+    }
+
+    .podium-value {
+        font-size: 1.2rem;
+    }
+
+    .spotlight-card {
+        padding: 40px 30px;
+        max-width: 350px;
+    }
+
+    .spotlight-avatar {
+        width: 120px;
+        height: 120px;
+    }
+
+    .spotlight-name {
+        font-size: 1.8rem;
+    }
+
+    .spotlight-value {
+        font-size: 1.5rem;
+    }
+}
