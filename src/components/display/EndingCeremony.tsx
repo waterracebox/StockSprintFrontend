@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Confetti from 'react-confetti';
+import apiClient from '../../services/apiClient';
 import './EndingCeremony.css';
 
 interface Award {
@@ -42,21 +43,8 @@ const EndingCeremony: React.FC = () => {
     useEffect(() => {
         const fetchStats = async () => {
             try {
-                const token = localStorage.getItem('token');
-                const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-                
-                const response = await fetch(`${API_URL}/api/admin/final-stats`, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch final stats');
-                }
-
-                const data = await response.json();
-                setStatsData(data);
+                const response = await apiClient.get('/admin/final-stats');
+                setStatsData(response.data);
                 setLoading(false);
             } catch (error) {
                 console.error('[EndingCeremony] 載入統計資料失敗:', error);
