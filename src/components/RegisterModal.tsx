@@ -155,22 +155,17 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isAdmin }) => {
                                 },
                             ]}
                         >
-                            <Input placeholder="請輸入帳號（僅限英文、數字）" autoComplete="username" />
+                            <Input placeholder="僅限英文或數字" autoComplete="username" />
                         </Form.Item>
 
                         <Form.Item
                             name="password"
                             label="密碼"
                             rules={[
-                                { required: true, message: '請輸入密碼' },
-                                { 
-                                    pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/,
-                                    message: '密碼至少8碼，需包含大小寫英文及數字'
-                                }
+                                { required: true, message: '請輸入密碼' }
                             ]}
-                            help="至少8碼，需包含大小寫英文及數字"
                         >
-                            <Input type="password" placeholder="至少8碼，需包含大小寫英文及數字" autoComplete="new-password" />
+                            <Input type="password" placeholder="請輸入密碼" autoComplete="new-password" />
                         </Form.Item>
 
                         <Form.Item
@@ -178,7 +173,7 @@ const RegisterModal: React.FC<RegisterModalProps> = ({ isAdmin }) => {
                             label="確認密碼"
                             rules={[{ required: true, message: '請再次輸入密碼' }]}
                         >
-                            <Input type="password" placeholder="請再次輸入密碼" autoComplete="new-password" />
+                            <Input type="password" placeholder="再次輸入" autoComplete="new-password" />
                         </Form.Item>
 
                         <Form.Item name="isEmployee" valuePropName="checked">

@@ -64,7 +64,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ isAdmin = false }) => {
             {contextHolder}
             {/* 標題 */}
             <h1 style={{ textAlign: 'center', marginBottom: '30px' }}>
-                {isAdmin ? '管理員登入' : 'XXX 交易所'}
+                {isAdmin ? '管理員登入' : '斯凱達 交易所'}
             </h1>
 
             {/* 登入表單 */}
