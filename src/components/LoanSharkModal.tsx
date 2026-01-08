@@ -3,6 +3,7 @@ import { Button, Toast, Dialog, Popup, Slider } from 'antd-mobile';
 import { CloseOutline } from 'antd-mobile-icons';
 import { Socket } from 'socket.io-client';
 import DualColorSwitch from './common/DualColorSwitch';
+import { useSound } from '../contexts/SoundContext';
 
 interface LoanSharkModalProps {
     isOpen: boolean;
@@ -84,12 +85,15 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
             : '合作愉快，歡迎下次光臨。'
     }), [merchantState]);
 
+    const { playSfx } = useSound();
+
     // 監聽交易成功事件
     useEffect(() => {
         if (!socket) return;
 
         const handleTradeSuccess = (payload: any) => {
             if (payload.action === 'BORROW' || payload.action === 'REPAY') {
+                playSfx('coins');
                 setMerchantState('HAPPY');
                 setTimeout(() => setMerchantState('NORMAL'), 3000);
             }
@@ -99,7 +103,7 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
         return () => {
             socket.off('TRADE_SUCCESS', handleTradeSuccess);
         };
-    }, [socket]);
+    }, [socket, playSfx]);
 
     // 【Phase 4】追蹤地下錢莊訪問次數
     useEffect(() => {

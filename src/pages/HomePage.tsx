@@ -12,6 +12,7 @@ import Leaderboard from '../components/Leaderboard';
 import NewsModal from '../components/NewsModal';
 import MiniGameOverlay from '../components/MiniGameOverlay';
 import type { MiniGameSyncState } from '../components/MiniGameOverlay';
+import { useSound } from '../contexts/SoundContext';
 
 /**
  * 格式化倒數計時（秒數轉 MM:SS）
@@ -31,6 +32,7 @@ interface LeaderboardItem {
 }
 
 const HomePage: React.FC = () => {
+    const { playSfx } = useSound();
     const [user, setUser] = useState<User | null>(null);
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isSocketConnected, setIsSocketConnected] = useState(false);
@@ -547,7 +549,7 @@ const HomePage: React.FC = () => {
                     };
                 });
 
-                playSound('/sounds/coin.mp3');
+                playSfx('coins');
 
                 Toast.show({
                     icon: 'success',
@@ -571,6 +573,8 @@ const HomePage: React.FC = () => {
 
                 // 更新活躍合約列表
                 setActiveContracts(prev => [...prev, payload.contractOrder]);
+
+                playSfx('coins');
 
                 Toast.show({
                     icon: 'success',
@@ -718,16 +722,7 @@ const HomePage: React.FC = () => {
     };
 
     // 音效播放輔助函數
-    const playSound = (soundPath: string) => {
-        try {
-            const audio = new Audio(soundPath);
-            audio.play().catch((error) => {
-                console.warn('[Sound] 音效播放失敗 (可能被瀏覽器阻擋):', error);
-            });
-        } catch (error) {
-            console.warn('[Sound] 音效檔案不存在:', soundPath);
-        }
-    };
+    // playSound 函數已由 SoundContext 的 playSfx 取代
 
     // 計算當前股價
     const currentPrice = stockHistory.length > 0
