@@ -21,6 +21,8 @@ interface TradingBarProps {
     maxLoanAmount?: number;
     dailyInterestRate?: number;
     stocks?: number; // 使用者持股數量，供賣出上限計算
+    loanSharkVisitCount?: number; // 【新增】地下錢莊訪問次數
+    currentDay?: number; // 【新增】當前遊戲天數
 }
 
 const TradingBar: React.FC<TradingBarProps> = ({ 
@@ -37,7 +39,9 @@ const TradingBar: React.FC<TradingBarProps> = ({
     dailyBorrowed = 0,
     maxLoanAmount = 1000,
     dailyInterestRate = 0.0001,
-    stocks = 0
+    stocks = 0,
+    loanSharkVisitCount = 0, // 【新增】
+    currentDay = 0 // 【新增】
 }) => {
     const [tradeMode, setTradeMode] = useState<'spot' | 'contract'>('spot');
     const [spotMode, setSpotMode] = useState<'BUY' | 'SELL'>('BUY');
@@ -721,8 +725,14 @@ const TradingBar: React.FC<TradingBarProps> = ({
                 isOpen={showLoanShark}
                 onClose={closeLoanSharkWithHash}
                 socket={socket}
-                userAssets={{ cash, debt, dailyBorrowed }}
+                userAssets={{ 
+                    cash, 
+                    debt, 
+                    dailyBorrowed,
+                    loanSharkVisitCount // 【新增】
+                }}
                 gameConfig={{ maxLoanAmount, dailyInterestRate }}
+                currentDay={currentDay} // 【新增】
             />
         </div>
     );

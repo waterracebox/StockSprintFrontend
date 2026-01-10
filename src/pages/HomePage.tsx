@@ -285,6 +285,11 @@ const HomePage: React.FC = () => {
             // 更新個人資產
             setAssets(payload.personal);
             
+            // 【新增】更新使用者的 loanSharkVisitCount（同步到 user 狀態）
+            if (payload.personal.loanSharkVisitCount !== undefined) {
+                setUser((prev) => prev ? { ...prev, loanSharkVisitCount: payload.personal.loanSharkVisitCount } : prev);
+            }
+            
             // 更新活躍合約（CRITICAL: 修復 refresh 後保證金消失的問題）
             if (payload.activeContracts) {
                 setActiveContracts(payload.activeContracts);
@@ -466,6 +471,18 @@ const HomePage: React.FC = () => {
                     ...prev,
                     dailyInterestRate: payload.dailyInterestRate,
                     maxLoanAmount: payload.maxLoanAmount,
+                };
+            });
+        });
+
+        // 【新增】8. 地下錢莊訪問次數更新
+        newSocket.on('LOAN_SHARK_VISIT_UPDATE', (payload: { loanSharkVisitCount: number }) => {
+            console.log('[Socket] 地下錢莊訪問次數更新:', payload.loanSharkVisitCount);
+            setUser((prev) => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    loanSharkVisitCount: payload.loanSharkVisitCount,
                 };
             });
         });
@@ -1188,6 +1205,8 @@ const HomePage: React.FC = () => {
                 dailyBorrowed={assets.dailyBorrowed ?? 0}
                 maxLoanAmount={gameState?.maxLoanAmount ?? 1000}
                 dailyInterestRate={gameState?.dailyInterestRate ?? 0.0001}
+                loanSharkVisitCount={user?.loanSharkVisitCount ?? 0} // 【新增】
+                currentDay={gameState?.currentDay ?? 0} // 【新增】
             />
 
             {/* ==================== 使用者選單 Popup ==================== */}
