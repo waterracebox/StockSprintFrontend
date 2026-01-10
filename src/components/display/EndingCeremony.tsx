@@ -251,7 +251,7 @@ const EndingCeremony: React.FC = () => {
                                 className="spotlight-avatar"
                             />
                             <div className="spotlight-name">{statsData.loanSharkLover.displayName}</div>
-                            <div className="spotlight-value">訪問地下錢莊 {(statsData.loanSharkLover as any).loanSharkVisitCount} 次</div>
+                            <div className="spotlight-value">沈梟對話次數 {(statsData.loanSharkLover as any).loanSharkVisitCount} 次</div>
                         </div>
                     </motion.div>
                 )}
