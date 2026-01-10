@@ -79,7 +79,7 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
     
     // 【新增】Debounce 控制（使用 useRef 避免重新渲染）
     const lastClickTimeRef = useRef<number>(0);
-    const blinkTimeoutsRef = useRef<NodeJS.Timeout[]>([]); // 【新增】儲存眨眼計時器以便清除
+    const blinkTimeoutsRef = useRef<number[]>([]); // 【新增】儲存眨眼計時器以便清除
     const DEBOUNCE_MS = 300;
 
     const { cash, debt, dailyBorrowed = 0, loanSharkVisitCount = 0 } = userAssets;

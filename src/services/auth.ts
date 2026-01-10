@@ -33,6 +33,7 @@ export interface User {
     role: 'USER' | 'ADMIN';
     isEmployee: boolean;
     firstSignIn: boolean; // 是否為首次登入
+    loanSharkVisitCount?: number; // 【新增】地下錢莊訪問次數
     createdAt: string; // ISO 8601 日期字串
     updatedAt: string; // ISO 8601 日期字串
 }
