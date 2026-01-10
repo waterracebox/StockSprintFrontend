@@ -82,6 +82,9 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
     const blinkTimeoutsRef = useRef<number[]>([]); // 【新增】儲存眨眼計時器以便清除
     const DEBOUNCE_MS = 300;
 
+    // 【效能優化】追蹤上一次的天數，避免 Modal 開啟時重複觸發
+    const lastDayRef = useRef<number>(-1);
+
     const { cash, debt, dailyBorrowed = 0, loanSharkVisitCount = 0 } = userAssets;
     const { maxLoanAmount, dailyInterestRate } = gameConfig;
 
@@ -162,21 +165,22 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                 fetchPrediction();
             }
         }
-    }, [isOpen, fetchPrediction]); // 移除 loanSharkVisitCount 依賴，避免訪問次數更新時重置對話
-
-    // 【新增】監聽好感度變化，檢查是否需要取得預測（但不重置對話）
-    useEffect(() => {
-        if (isOpen && loanSharkVisitCount >= MAX_AFFINITY_THRESHOLD) {
-            fetchPrediction();
-        }
-    }, [loanSharkVisitCount, isOpen, fetchPrediction]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen]); // 只依賴 isOpen，避免重複觸發
 
     // 【新增】監聽天數變化，重新取得預測
     useEffect(() => {
-        if (isOpen && loanSharkVisitCount >= MAX_AFFINITY_THRESHOLD && currentDay > 0) {
-            fetchPrediction();
+        // 【效能優化】只在天數真正變化時才呼叫（避免 Modal 開啟時重複觸發）
+        if (currentDay > 0 && currentDay !== lastDayRef.current) {
+            lastDayRef.current = currentDay;
+            
+            if (isOpen && loanSharkVisitCount >= MAX_AFFINITY_THRESHOLD) {
+                console.log(`[LoanShark] 天數變化為 ${currentDay}，重新取得預測`);
+                fetchPrediction();
+            }
         }
-    }, [currentDay, isOpen, loanSharkVisitCount, fetchPrediction]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentDay, isOpen]); // 只依賴 currentDay 和 isOpen，不依賴 loanSharkVisitCount
 
     // 【新增】點擊頭像的互動邏輯
     const handlePortraitClick = useCallback(() => {
@@ -203,8 +207,12 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
         // 注意：實際的 count 會在下次 render 時從 props 更新
         const currentCount = loanSharkVisitCount;
 
-        // 6. 若已達門檻，取得預測
-        if (currentCount >= MAX_AFFINITY_THRESHOLD) {
+        // 6. 【效能優化】只在「剛好達到門檻」時取得預測（點擊前 < 300，點擊後會 >= 300）
+        const willReachThreshold = currentCount + 1 >= MAX_AFFINITY_THRESHOLD;
+        const hasNotReachedYet = currentCount < MAX_AFFINITY_THRESHOLD;
+        
+        if (hasNotReachedYet && willReachThreshold) {
+            console.log(`[LoanShark] 剛好達到門檻 (${currentCount} -> ${currentCount + 1})，取得預測`);
             fetchPrediction();
         }
 
@@ -501,14 +509,14 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                     </div>
 
                     {/* 【新增】顯示當前好感度（測試用，正式環境可移除） */}
-                    {/* <div style={{ 
+                    <div style={{ 
                         textAlign: 'center', 
                         fontSize: '10px', 
                         color: '#999', 
                         marginTop: '4px' 
                     }}>
                         訪問次數: {loanSharkVisitCount} / {MAX_AFFINITY_THRESHOLD}
-                    </div> */}
+                    </div>
 
                     {/* 模式切換：借 / 還 */}
                     <div style={{ 
