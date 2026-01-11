@@ -53,6 +53,8 @@ export const SoundProvider: React.FC<{ children: React.ReactNode; disableBgm?: b
     const fadingOutTrackRef = useRef<Howl | null>(null); // 追蹤正在淡出的音軌
     const currentIndexRef = useRef(-1); // 從 -1 開始，讓第一首歌是 bgm_01
     const fadeTimeoutRef = useRef<number | null>(null);
+    const fadeTimeoutStartTimeRef = useRef<number>(0); // 記錄 timeout 開始時間
+    const fadeTimeoutRemainingRef = useRef<number>(0); // 記錄剩餘時間
     const hasInteractedRef = useRef(false);
     const sfxInstancesRef = useRef<{ [key in SfxType]?: Howl }>({});
 
@@ -147,6 +149,8 @@ export const SoundProvider: React.FC<{ children: React.ReactNode; disableBgm?: b
                 if (duration > 0) {
                     const triggerTime = Math.max(1000, duration - CROSSFADE_DURATION);
                     console.log(`[BGM] 設定 timeout: ${triggerTime}ms 後切換下一首`);
+                    fadeTimeoutStartTimeRef.current = Date.now(); // 記錄開始時間
+                    fadeTimeoutRemainingRef.current = triggerTime; // 記錄總時間
                     fadeTimeoutRef.current = window.setTimeout(() => {
                         console.log('[BGM] Timeout 觸發，準備切換下一首');
                         playNextTrack();
@@ -183,6 +187,8 @@ export const SoundProvider: React.FC<{ children: React.ReactNode; disableBgm?: b
                 if (duration > 0) {
                     const triggerTime = Math.max(1000, duration - CROSSFADE_DURATION);
                     console.log(`[BGM] 設定 timeout: ${triggerTime}ms 後切換下一首`);
+                    fadeTimeoutStartTimeRef.current = Date.now(); // 記錄開始時間
+                    fadeTimeoutRemainingRef.current = triggerTime; // 記錄總時間
                     fadeTimeoutRef.current = window.setTimeout(() => {
                         console.log('[BGM] Timeout 觸發，準備切換下一首');
                         playNextTrack();
@@ -266,12 +272,35 @@ export const SoundProvider: React.FC<{ children: React.ReactNode; disableBgm?: b
         const handleVisibilityChange = () => {
             if (document.hidden) {
                 // 頁面被隱藏（例如按 Home 鍵），暫停所有音樂
-                console.log('[BGM] 頁面隱藏，暫停音樂');
+                console.log('[BGM] 頁面隱藏，快速淡出後暫停音樂（避免音爆）');
+                
+                // 【關鍵】清除 timeout 並計算剩餘時間
+                if (fadeTimeoutRef.current !== null) {
+                    clearTimeout(fadeTimeoutRef.current);
+                    const elapsed = Date.now() - fadeTimeoutStartTimeRef.current;
+                    fadeTimeoutRemainingRef.current = Math.max(0, fadeTimeoutRemainingRef.current - elapsed);
+                    console.log(`[BGM] Timeout 已暫停，剩餘時間: ${fadeTimeoutRemainingRef.current}ms`);
+                    fadeTimeoutRef.current = null;
+                }
+                
+                // 【關鍵】先快速淡出再暫停，避免硬切導致音爆
                 if (currentTrackRef.current) {
-                    currentTrackRef.current.pause();
+                    const track = currentTrackRef.current;
+                    const currentVolume = track.volume();
+                    track.fade(currentVolume, 0.001, 50); // 50ms 快速淡出到極低音量
+                    setTimeout(() => {
+                        track.pause();
+                        track.volume(currentVolume); // 恢復原音量，以便恢復時使用
+                    }, 60);
                 }
                 if (fadingOutTrackRef.current) {
-                    fadingOutTrackRef.current.pause();
+                    const track = fadingOutTrackRef.current;
+                    const currentVolume = track.volume();
+                    track.fade(currentVolume, 0.001, 50);
+                    setTimeout(() => {
+                        track.pause();
+                        track.volume(currentVolume);
+                    }, 60);
                 }
             } else {
                 // 頁面恢復，只繼續播放當前音軌（淡出中的音軌不恢復）
@@ -288,6 +317,16 @@ export const SoundProvider: React.FC<{ children: React.ReactNode; disableBgm?: b
                     setTimeout(() => {
                         track.fade(0.01, targetVolume, 300);
                     }, 50);
+                    
+                    // 【關鍵】重新設定 timeout，使用剩餘時間
+                    if (fadeTimeoutRemainingRef.current > 0) {
+                        console.log(`[BGM] 重新設定 timeout: ${fadeTimeoutRemainingRef.current}ms 後切換下一首`);
+                        fadeTimeoutStartTimeRef.current = Date.now();
+                        fadeTimeoutRef.current = window.setTimeout(() => {
+                            console.log('[BGM] Timeout 觸發（恢復後），準備切換下一首');
+                            playNextTrack();
+                        }, fadeTimeoutRemainingRef.current);
+                    }
                 }
                 // 【修改】不恢復淡出中的音軌，讓它自然結束
             }
@@ -309,13 +348,28 @@ export const SoundProvider: React.FC<{ children: React.ReactNode; disableBgm?: b
             if (fadeTimeoutRef.current) {
                 clearTimeout(fadeTimeoutRef.current);
             }
+            
+            // 【關鍵】先快速淡出再停止，避免路由切換時硬切導致音爆
+            const cleanupTrack = (track: Howl) => {
+                const currentVolume = track.volume();
+                if (currentVolume > 0.001) {
+                    console.log('[BGM] 清理前快速淡出（避免音爆）');
+                    track.fade(currentVolume, 0.001, 50); // 50ms 快速淡出
+                    setTimeout(() => {
+                        track.stop();
+                        track.unload();
+                    }, 60);
+                } else {
+                    track.stop();
+                    track.unload();
+                }
+            };
+            
             if (currentTrackRef.current) {
-                currentTrackRef.current.stop();
-                currentTrackRef.current.unload();
+                cleanupTrack(currentTrackRef.current);
             }
             if (fadingOutTrackRef.current) {
-                fadingOutTrackRef.current.stop();
-                fadingOutTrackRef.current.unload();
+                cleanupTrack(fadingOutTrackRef.current);
             }
         };
     }, [playNextTrack, disableBgm]);
