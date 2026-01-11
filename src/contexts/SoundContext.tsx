@@ -36,12 +36,12 @@ const BGM_PLAYLIST = [
     '/sounds/bgm/bgm_04.mp3',
 ];
 
-const CROSSFADE_DURATION = 4000; // 4 秒交叉淡入淡出
+const CROSSFADE_DURATION = 6000; // 6 秒交叉淡入淡出
 const DEFAULT_BGM_VOLUME = 0.3;
 const DEFAULT_SFX_VOLUME = 0.8;
 
 // ==================== Provider 組件 ====================
-export const SoundProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const SoundProvider: React.FC<{ children: React.ReactNode; disableBgm?: boolean }> = ({ children, disableBgm = false }) => {
     // ========== 狀態管理 ==========
     const [bgmVolume, setBgmVolumeState] = useState(DEFAULT_BGM_VOLUME);
     const [sfxVolume, setSfxVolumeState] = useState(DEFAULT_SFX_VOLUME);
@@ -50,6 +50,7 @@ export const SoundProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // ========== Refs（不觸發重新渲染） ==========
     const currentTrackRef = useRef<Howl | null>(null);
+    const fadingOutTrackRef = useRef<Howl | null>(null); // 追蹤正在淡出的音軌
     const currentIndexRef = useRef(-1); // 從 -1 開始，讓第一首歌是 bgm_01
     const fadeTimeoutRef = useRef<number | null>(null);
     const hasInteractedRef = useRef(false);
@@ -154,14 +155,16 @@ export const SoundProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             });
         } else {
             // ========== 後續歌曲：交叉淡入淡出 ==========
-            console.log('[BGM] 開始交叉淡入淡出');
+            console.log('[BGM] 開始交叉淡入淡出（6 秒）');
             
-            // 淡出當前歌曲
+            // 淡出當前歌曲並追蹤
             const currentVolume = currentTrack.volume();
+            fadingOutTrackRef.current = currentTrack; // 追蹤淡出中的音軌
             currentTrack.fade(currentVolume, 0, CROSSFADE_DURATION);
             setTimeout(() => {
                 currentTrack.stop();
                 currentTrack.unload();
+                fadingOutTrackRef.current = null; // 清除追蹤
                 console.log('[BGM] 舊歌曲已停止並卸載');
             }, CROSSFADE_DURATION + 100);
 
@@ -191,6 +194,12 @@ export const SoundProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // ========== BGM 自動啟動（含 Autoplay 阻擋處理） ==========
     useEffect(() => {
+        // 若禁用 BGM，直接返回
+        if (disableBgm) {
+            console.log('[BGM] 此頁面已禁用背景音樂');
+            return;
+        }
+
         // 預載所有音效（但不播放）
         console.log('[Audio] 預載音效檔案...');
         sfxInstancesRef.current['coins'] = new Howl({
@@ -231,33 +240,71 @@ export const SoundProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 console.log('[Audio] AudioContext 狀態:', Howler.ctx.state);
             }
             
-            // 播放一個極短的靜音來解鎖音頻（Chrome 必須）
-            const unlockSound = new Howl({
+            // 【新增】預熱 AudioContext（播放極短的低音量音效避免首次延遲）
+            const warmupSound = new Howl({
                 src: ['/sounds/coin.mp3'],
-                volume: 0,
+                volume: 0.001, // 極低音量，幾乎無聲
                 onload: () => {
-                    unlockSound.play();
-                    console.log('[Audio] 解鎖音效已播放（靜音）');
+                    const playId = warmupSound.play();
+                    console.log('[Audio] AudioContext 預熱中...');
                     setTimeout(() => {
-                        unlockSound.unload();
-                        // 解鎖完成後啟動 BGM
-                        console.log('[BGM] AudioContext 已解鎖，啟動背景音樂');
-                        playNextTrack();
+                        warmupSound.stop(playId);
+                        warmupSound.unload();
+                        console.log('[Audio] AudioContext 預熱完成');
+                        
+                        // 預熱完成後啟動 BGM
+                        if (!disableBgm) {
+                            console.log('[BGM] AudioContext 已解鎖，啟動背景音樂');
+                            playNextTrack();
+                        }
                     }, 100);
                 },
             });
+        };
+
+        // Page Visibility API：頁面隱藏時暫停，恢復時繼續
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                // 頁面被隱藏（例如按 Home 鍵），暫停所有音樂
+                console.log('[BGM] 頁面隱藏，暫停音樂');
+                if (currentTrackRef.current) {
+                    currentTrackRef.current.pause();
+                }
+                if (fadingOutTrackRef.current) {
+                    fadingOutTrackRef.current.pause();
+                }
+            } else {
+                // 頁面恢復，只繼續播放當前音軌（淡出中的音軌不恢復）
+                console.log('[BGM] 頁面恢復，繼續音樂（使用漸增避免音爆）');
+                if (currentTrackRef.current && hasInteractedRef.current) {
+                    const track = currentTrackRef.current;
+                    const targetVolume = bgmVolume;
+                    
+                    // 【關鍵】使用漸增恢復，避免音爆
+                    track.volume(0.01); // 先設極低音量
+                    track.play();
+                    
+                    // 300ms 漸增到目標音量
+                    setTimeout(() => {
+                        track.fade(0.01, targetVolume, 300);
+                    }, 50);
+                }
+                // 【修改】不恢復淡出中的音軌，讓它自然結束
+            }
         };
 
         // 註冊使用者互動事件監聽（使用 capture 階段確保優先執行）
         document.addEventListener('click', handleFirstInteraction, true);
         document.addEventListener('touchstart', handleFirstInteraction, true);
         document.addEventListener('keydown', handleFirstInteraction, true);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         // 清理函數
         return () => {
             document.removeEventListener('click', handleFirstInteraction, true);
             document.removeEventListener('touchstart', handleFirstInteraction, true);
             document.removeEventListener('keydown', handleFirstInteraction, true);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             
             if (fadeTimeoutRef.current) {
                 clearTimeout(fadeTimeoutRef.current);
@@ -266,8 +313,12 @@ export const SoundProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 currentTrackRef.current.stop();
                 currentTrackRef.current.unload();
             }
+            if (fadingOutTrackRef.current) {
+                fadingOutTrackRef.current.stop();
+                fadingOutTrackRef.current.unload();
+            }
         };
-    }, [playNextTrack]);
+    }, [playNextTrack, disableBgm]);
 
     // ========== SFX 播放邏輯 ==========
     const playSfx = useCallback((type: SfxType) => {
@@ -288,13 +339,29 @@ export const SoundProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // 使用已預載的音效實例
         const sfx = sfxInstancesRef.current[type];
         if (sfx) {
-            console.log(`[SFX] 執行 play()，音效類型: ${type}`);
-            const playId = sfx.play();
-            console.log(`[SFX] play() 返回 ID: ${playId}`);
+            // 【關鍵】首次播放使用漸增，避免爆音
+            if (!(sfx as any)._hasPlayedOnce) {
+                console.log(`[SFX] 首次播放 ${type}，使用漸增避免爆音`);
+                sfx.volume(0.01); // 先設極低音量
+                const playId = sfx.play();
+                
+                // 200ms 後漸增到目標音量
+                setTimeout(() => {
+                    sfx.fade(0.01, sfxVolume, 200, playId);
+                }, 50);
+                
+                (sfx as any)._hasPlayedOnce = true;
+            } else {
+                // 正常播放
+                console.log(`[SFX] 執行 play()，音效類型: ${type}`);
+                sfx.volume(sfxVolume);
+                const playId = sfx.play();
+                console.log(`[SFX] play() 返回 ID: ${playId}`);
+            }
         } else {
             console.error(`[SFX] 音效實例不存在: ${type}（應該在初始化時預載）`);
         }
-    }, [isSfxMuted]);
+    }, [isSfxMuted, sfxVolume]);
 
     // ========== Context Value ==========
     const value: SoundContextValue = {

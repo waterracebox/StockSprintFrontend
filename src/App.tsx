@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage';
 import AdminPage from './pages/AdminPage';
 import DisplayPage from './pages/DisplayPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import { SoundProvider } from './contexts/SoundContext';
 import './App.css';
 
 const App: React.FC = () => {
@@ -20,32 +21,38 @@ const App: React.FC = () => {
                 {/* 管理員登入頁 */}
                 <Route path="/adminLogin" element={<LoginPage isAdmin />} />
 
-                {/* 受保護的首頁 */}
+                {/* 受保護的首頁（啟用 BGM）*/}
                 <Route
                     path="/home"
                     element={
                         <ProtectedRoute>
-                            <HomePage />
+                            <SoundProvider>
+                                <HomePage />
+                            </SoundProvider>
                         </ProtectedRoute>
                     }
                 />
 
-                {/* Admin 後台頁面 */}
+                {/* Admin 後台頁面（禁用 BGM，避免與投影頁衝突） */}
                 <Route
                     path="/admin"
                     element={
                         <ProtectedRoute>
-                            <AdminPage />
+                            <SoundProvider disableBgm={true}>
+                                <AdminPage />
+                            </SoundProvider>
                         </ProtectedRoute>
                     }
                 />
 
-                {/* 大螢幕展示頁 */}
+                {/* 大螢幕展示頁（啟用 BGM）*/}
                 <Route
                     path="/display"
                     element={
                         <ProtectedRoute>
-                            <DisplayPage />
+                            <SoundProvider>
+                                <DisplayPage />
+                            </SoundProvider>
                         </ProtectedRoute>
                     }
                 />

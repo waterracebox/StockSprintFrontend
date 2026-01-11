@@ -156,10 +156,11 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
     // 【新增】初始化對話與預測（只在開啟時執行一次）
     useEffect(() => {
         if (isOpen) {
-            // 強制顯示預設問候語（只在開啟瞬間）
-            setDialogue(DEFAULT_GREETING);
-            setIsTransactionSuccess(false);
-
+            // 【修正】只有在非交易成功狀態時才重置對話，避免覆蓋交易成功訊息
+            if (!isTransactionSuccess) {
+                setDialogue(DEFAULT_GREETING);
+            }
+            
             // 若已達最高好感度，立即取得預測
             if (loanSharkVisitCount >= MAX_AFFINITY_THRESHOLD) {
                 fetchPrediction();
@@ -281,10 +282,19 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                 setMerchantState('HAPPY');
                 setIsTransactionSuccess(true);
 
+                // 【修正】設置交易成功的對話
+                const successMessage = payload.action === 'BORROW' 
+                    ? '聰明的決定。快去買斯凱益，晚一秒都是損失！'
+                    : '這就對了。守規矩的人，才能在這座城市活得久。';
+                const previousDialogue = dialogue; // 保存當前對話
+                setDialogue(successMessage);
+
                 // 3 秒後恢復
                 setTimeout(() => {
                     setMerchantState('NORMAL');
                     setIsTransactionSuccess(false);
+                    // 【修正】恢復到交易前的對話，而不是預設問候語
+                    setDialogue(previousDialogue || DEFAULT_GREETING);
                 }, 3000);
             }
         };
@@ -293,7 +303,7 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
         return () => {
             socket.off('TRADE_SUCCESS', handleTradeSuccess);
         };
-    }, [socket, playSfx]);
+    }, [socket, playSfx, dialogue]);
 
     // 【Phase 4】開啟地下錢莊時自動記錄訪問（進入就+1）
     useEffect(() => {
@@ -509,14 +519,14 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
                     </div>
 
                     {/* 【新增】顯示當前好感度（測試用，正式環境可移除） */}
-                    <div style={{ 
+                    {/* <div style={{ 
                         textAlign: 'center', 
                         fontSize: '10px', 
                         color: '#999', 
                         marginTop: '4px' 
                     }}>
                         訪問次數: {loanSharkVisitCount} / {MAX_AFFINITY_THRESHOLD}
-                    </div>
+                    </div> */}
 
                     {/* 模式切換：借 / 還 */}
                     <div style={{ 
