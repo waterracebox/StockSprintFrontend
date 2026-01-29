@@ -23,7 +23,7 @@ const NewsFlashModal: React.FC<NewsFlashModalProps> = ({
     duration = 10000 
 }) => {
     // 使用 useRef 保存計時器，避免因為重新渲染而被清理
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const timerRef = useRef<number | null>(null);
     const onCloseRef = useRef(onClose);
 
     // 每次渲染時更新 onCloseRef

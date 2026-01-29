@@ -219,14 +219,14 @@ const DisplayPage: React.FC = () => {
                 // 延遲 300ms 後顯示新新聞（避免閃爍）
                 const timer = setTimeout(() => {
                     setCurrentNews({
-                        title: todayData.title,
-                        content: todayData.news || '',
-                    });
-                    setShowNews(true);
-                    console.log('[Display] 新聞速報已顯示');
-                }, showNews ? 300 : 0); // 如果已有舊新聞則延遲，否則立即顯示
+                    title: todayData.title || '',
+                    content: todayData.news || '',
+                });
+                setShowNews(true);
+                console.log('[Display] 新聞速報已顯示');
+            }, showNews ? 300 : 0); // 如果已有舊新聞則延遲，否則立即顯示
 
-                return () => clearTimeout(timer);
+            return () => clearTimeout(timer);
             } else {
                 console.log('[NewsFlash Debug] 已顯示相同新聞，跳過');
             }
