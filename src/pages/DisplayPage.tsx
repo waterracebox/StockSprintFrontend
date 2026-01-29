@@ -8,6 +8,7 @@ import StockChart from '../components/StockChart';
 import Leaderboard from '../components/Leaderboard';
 import MiniGameDisplaySwitch from '../components/minigame/containers/MiniGameDisplaySwitch';
 import EndingCeremony from '../components/display/EndingCeremony'; // 【Phase 4】結束儀式
+import NewsFlashModal from '../components/display/NewsFlashModal'; // 【新增】新聞速報彈窗
 import type { StockData, GameState, FullSyncPayload } from '../types/game';
 
 type LeaderboardItem = { userId: number; displayName: string; avatar: string | null; totalAssets: number; rank: number };
@@ -22,6 +23,10 @@ const DisplayPage: React.FC = () => {
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [participants, setParticipants] = useState<{ userId: number; displayName: string; avatar: string | null }[]>([]);
     const socketRef = useRef<Socket | null>(null);
+
+    // 【新增】新聞速報狀態
+    const [showNews, setShowNews] = useState(false);
+    const [currentNews, setCurrentNews] = useState<{ title: string; content: string } | null>(null);
 
     // 驗證使用者，僅允許員工或管理員瀏覽投影頁
     useEffect(() => {
@@ -118,6 +123,25 @@ const DisplayPage: React.FC = () => {
             setLeaderboard(payload.data);
         });
 
+        // 【新增】監聽新聞廣播（即時更新 stockHistory 中的新聞數據）
+        s.on('NEWS_UPDATE', (payload: { day: number; title: string; content: string }) => {
+            console.log('[Display] 收到新聞廣播:', payload);
+            
+            // 更新 stockHistory 中對應天數的新聞數據
+            setStockHistory((prev) => {
+                return prev.map((item) => {
+                    if (item.day === payload.day) {
+                        return {
+                            ...item,
+                            title: payload.title,
+                            news: payload.content,
+                        };
+                    }
+                    return item;
+                });
+            });
+        });
+
         // 【Phase 4】監聽遊戲狀態更新
         s.on('GAME_STATE_UPDATE', (payload: GameState) => {
             console.log('[DisplayPage] 收到 GAME_STATE_UPDATE:', payload);
@@ -140,6 +164,80 @@ const DisplayPage: React.FC = () => {
     useEffect(() => {
         setParticipants(miniGame?.data?.participants || []);
     }, [miniGame?.data?.participants]);
+
+    // 【新增】新聞速報觸發邏輯
+    useEffect(() => {
+        console.log('[NewsFlash Debug] 觸發檢查', {
+            hasGameState: !!gameState,
+            currentDay: gameState?.currentDay,
+            historyLength: stockHistory.length,
+            miniGameType: miniGame?.gameType,
+            showNews,
+        });
+
+        // 條件 1：遊戲狀態或新聞數據未載入
+        if (!gameState || !stockHistory.length) {
+            console.log('[NewsFlash Debug] 數據未載入，跳過');
+            return;
+        }
+
+        const currentDay = gameState.currentDay;
+        const hasMiniGame = miniGame && miniGame.gameType !== 'NONE';
+
+        // 條件 2：小遊戲進行中時，強制關閉新聞速報
+        if (hasMiniGame) {
+            if (showNews) {
+                console.log('[Display] 小遊戲進行中，關閉新聞速報');
+                setShowNews(false);
+            }
+            return;
+        }
+
+        // 條件 3：天數變化時，檢查新新聞
+        const todayData = stockHistory.find((d) => d.day === currentDay);
+        console.log('[NewsFlash Debug] 檢查當天數據', {
+            currentDay,
+            todayData: todayData ? { day: todayData.day, title: todayData.title, hasNews: !!todayData.news } : null,
+        });
+
+        if (todayData && todayData.title && todayData.news) {
+            // 檢查是否為新新聞（避免重複顯示）
+            const isNewNews = !currentNews || currentNews.title !== todayData.title;
+            
+            if (isNewNews) {
+                console.log(`[Display] Day ${currentDay} 發現新新聞，準備顯示速報`, {
+                    title: todayData.title,
+                    news: todayData.news,
+                });
+
+                // 若舊新聞正在顯示，先關閉
+                if (showNews) {
+                    console.log('[Display] 關閉舊新聞');
+                    setShowNews(false);
+                }
+
+                // 延遲 300ms 後顯示新新聞（避免閃爍）
+                const timer = setTimeout(() => {
+                    setCurrentNews({
+                        title: todayData.title,
+                        content: todayData.news || '',
+                    });
+                    setShowNews(true);
+                    console.log('[Display] 新聞速報已顯示');
+                }, showNews ? 300 : 0); // 如果已有舊新聞則延遲，否則立即顯示
+
+                return () => clearTimeout(timer);
+            } else {
+                console.log('[NewsFlash Debug] 已顯示相同新聞，跳過');
+            }
+        }
+
+        // 條件 4：天數變化但無新聞時，關閉舊新聞
+        if (showNews && (!todayData || !todayData.title)) {
+            console.log('[Display] 天數變化且無新聞，關閉速報');
+            setShowNews(false);
+        }
+    }, [gameState?.currentDay, stockHistory, miniGame?.gameType, showNews, currentNews]);
 
     const currentPrice = stockHistory.length > 0 ? stockHistory[stockHistory.length - 1].price : 0;
     const miniGameView = miniGame ? <MiniGameDisplaySwitch miniGame={miniGame} participants={participants} socket={socketRef.current} /> : null;
@@ -237,6 +335,20 @@ const DisplayPage: React.FC = () => {
                         )}
                     </div>
                 </div>
+
+                {/* 【新增】新聞速報彈窗 */}
+                {currentNews && (
+                    <NewsFlashModal
+                        title={currentNews.title}
+                        content={currentNews.content}
+                        isVisible={showNews}
+                        onClose={() => {
+                            console.log('[DisplayPage] 調用 onClose，關閉新聞速報');
+                            setShowNews(false);
+                        }}
+                        duration={10000}
+                    />
+                )}
             </div>
         );
     }
