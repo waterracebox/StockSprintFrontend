@@ -34,6 +34,18 @@ const BGM_PLAYLIST = [
     '/sounds/bgm/bgm_02.mp3',
     '/sounds/bgm/bgm_03.mp3',
     '/sounds/bgm/bgm_04.mp3',
+    '/sounds/bgm/bgm_05.mp3',
+    '/sounds/bgm/bgm_06.mp3',
+    '/sounds/bgm/bgm_07.mp3',
+    '/sounds/bgm/bgm_08.mp3',
+    '/sounds/bgm/bgm_09.mp3',
+    '/sounds/bgm/bgm_10.mp3',
+    '/sounds/bgm/bgm_11.mp3',
+    '/sounds/bgm/bgm_12.mp3',
+    '/sounds/bgm/bgm_13.mp3',
+    '/sounds/bgm/bgm_14.mp3',
+    '/sounds/bgm/bgm_15.mp3',
+    '/sounds/bgm/bgm_16.mp3',
 ];
 
 const CROSSFADE_DURATION = 6000; // 6 秒交叉淡入淡出
