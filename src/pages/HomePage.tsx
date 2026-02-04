@@ -784,8 +784,8 @@ const HomePage: React.FC = () => {
         }
     };
 
-    // 生成所有頭像選項 (avatar_00.webp 到 avatar_82.webp)
-    const avatarOptions = Array.from({ length: 83 }, (_, i) => 
+    // 生成所有頭像選項 (avatar_00.webp 到 avatar_88.webp)
+    const avatarOptions = Array.from({ length: 89 }, (_, i) => 
         `avatar_${i.toString().padStart(2, '0')}.webp`
     );
 
