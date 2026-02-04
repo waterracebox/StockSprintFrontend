@@ -9,6 +9,7 @@ import Leaderboard from '../components/Leaderboard';
 import MiniGameDisplaySwitch from '../components/minigame/containers/MiniGameDisplaySwitch';
 import EndingCeremony from '../components/display/EndingCeremony'; // 【Phase 4】結束儀式
 import NewsFlashModal from '../components/display/NewsFlashModal'; // 【新增】新聞速報彈窗
+import QRCodeModal from '../components/QRCodeModal'; // 【新增】第 0 天 QR Code 彈窗
 import type { StockData, GameState, FullSyncPayload } from '../types/game';
 
 type LeaderboardItem = { userId: number; displayName: string; avatar: string | null; totalAssets: number; rank: number };
@@ -335,6 +336,12 @@ const DisplayPage: React.FC = () => {
                         )}
                     </div>
                 </div>
+
+                {/* 【新增】第 0 天 QR Code 彈窗（最高優先級） */}
+                <QRCodeModal
+                    currentDay={gameState?.currentDay ?? -1}
+                    hasMiniGame={miniGame !== null && miniGame.gameType !== 'NONE'}
+                />
 
                 {/* 【新增】新聞速報彈窗 */}
                 {currentNews && (
