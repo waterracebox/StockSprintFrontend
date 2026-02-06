@@ -34,6 +34,19 @@ const SortableItem: React.FC<SortableItemProps> = ({ question, index, isQuiz, on
         cursor: isQuiz ? 'not-allowed' : 'grab',
     };
 
+    // 【新增】获取正确答案的选项内容
+    const getCorrectAnswerText = () => {
+        const answerMap: Record<string, string> = {
+            'A': question.optionA,
+            'B': question.optionB,
+            'C': question.optionC,
+            'D': question.optionD,
+        };
+        return answerMap[question.correctAnswer] || '';
+    };
+
+    const correctAnswerText = getCorrectAnswerText();
+
     return (
         <div ref={setNodeRef} style={style}>
             <List.Item
@@ -59,7 +72,12 @@ const SortableItem: React.FC<SortableItemProps> = ({ question, index, isQuiz, on
                         ☰
                     </div>
                 }
-                description={`答案: ${question.correctAnswer} | 時間: ${question.duration}秒`}
+                description={
+                    <div>
+                        <div>答案: {question.correctAnswer}{correctAnswerText ? ` (${correctAnswerText})` : ''}</div>
+                        <div>時間: {question.duration}秒</div>
+                    </div>
+                }
                 extra={
                     <Space direction='vertical' style={{ gap: 4 }}>
                         <Button size='mini' color='primary' fill='outline' onClick={() => onEdit(question)} disabled={isQuiz}>

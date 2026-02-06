@@ -194,8 +194,15 @@ const QuizUserView: React.FC<Props> = ({ state, totalAssets, currentPrice, onCol
                                 borderRadius: 8,
                                 border: '1px solid rgba(244, 67, 54, 0.4)',
                             }}>
-                                <div style={{ opacity: 0.75, fontSize: 14, marginBottom: 4 }}>你的答案</div>
-                                <div style={{ fontWeight: 700, fontSize: 18 }}>{myAnswer}</div>
+                                <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    marginBottom: 4,
+                                }}>
+                                    <span style={{ opacity: 0.75, fontSize: 14 }}>你的答案</span>
+                                    <span style={{ fontWeight: 700, fontSize: 18 }}>{myAnswer}</span>
+                                </div>
                                 {myAnswerText && (
                                     <div style={{ fontSize: 15, marginTop: 4, color: '#FFB3B3' }}>
                                         {myAnswerText}
@@ -211,8 +218,15 @@ const QuizUserView: React.FC<Props> = ({ state, totalAssets, currentPrice, onCol
                             borderRadius: 8,
                             border: '1px solid rgba(76, 175, 80, 0.4)',
                         }}>
-                            <div style={{ opacity: 0.75, fontSize: 14, marginBottom: 4 }}>正確答案</div>
-                            <div style={{ fontWeight: 700, fontSize: 18 }}>{correctAnswer}</div>
+                            <div style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center',
+                                marginBottom: 4,
+                            }}>
+                                <span style={{ opacity: 0.75, fontSize: 14 }}>正確答案</span>
+                                <span style={{ fontWeight: 700, fontSize: 18 }}>{correctAnswer}</span>
+                            </div>
                             {correctAnswerText && (
                                 <div style={{ fontSize: 15, marginTop: 4, color: '#B3FFB3' }}>
                                     {correctAnswerText}
