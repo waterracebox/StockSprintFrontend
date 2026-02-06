@@ -23,6 +23,7 @@ interface TradingBarProps {
     stocks?: number; // 使用者持股數量，供賣出上限計算
     loanSharkVisitCount?: number; // 【新增】地下錢莊訪問次數
     currentDay?: number; // 【新增】當前遊戲天數
+    onTradeModeChange?: (mode: 'spot' | 'contract') => void; // 【新增】交易模式切換回調（教學系統用）
 }
 
 const TradingBar: React.FC<TradingBarProps> = ({ 
@@ -41,9 +42,16 @@ const TradingBar: React.FC<TradingBarProps> = ({
     dailyInterestRate = 0.0001,
     stocks = 0,
     loanSharkVisitCount = 0, // 【新增】
-    currentDay = 0 // 【新增】
+    currentDay = 0, // 【新增】
+    onTradeModeChange, // 【新增】交易模式切換回調
 }) => {
-    const [tradeMode, setTradeMode] = useState<'spot' | 'contract'>('spot');
+    const [tradeMode, setTradeModeState] = useState<'spot' | 'contract'>('spot');
+
+    // 封裝 setTradeMode，同時通知父組件（教學系統自動推進用）
+    const setTradeMode = (mode: 'spot' | 'contract') => {
+        setTradeModeState(mode);
+        onTradeModeChange?.(mode);
+    };
     const [spotMode, setSpotMode] = useState<'BUY' | 'SELL'>('BUY');
     const [spotQuantity, setSpotQuantity] = useState<number>(1);
     const [spotQuantityInput, setSpotQuantityInput] = useState<string>('1');
@@ -339,23 +347,27 @@ const TradingBar: React.FC<TradingBarProps> = ({
                 marginBottom: '12px'
             }}>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <Button 
-                        size="small"
-                        fill={tradeMode === 'spot' ? 'solid' : 'none'}
-                        color={tradeMode === 'spot' ? 'primary' : 'default'}
-                        onClick={() => setTradeMode('spot')}
-                    >
-                        現貨
-                    </Button>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div id="tutorial-tab-spot">
                         <Button 
                             size="small"
-                            fill={tradeMode === 'contract' ? 'solid' : 'none'}
-                            color={tradeMode === 'contract' ? 'primary' : 'default'}
-                            onClick={() => setTradeMode('contract')}
+                            fill={tradeMode === 'spot' ? 'solid' : 'none'}
+                            color={tradeMode === 'spot' ? 'primary' : 'default'}
+                            onClick={() => setTradeMode('spot')}
                         >
-                            合約
+                            現貨
                         </Button>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div  id="tutorial-tab-futures">
+                            <Button 
+                                size="small"
+                                fill={tradeMode === 'contract' ? 'solid' : 'none'}
+                                color={tradeMode === 'contract' ? 'primary' : 'default'}
+                                onClick={() => setTradeMode('contract')}
+                            >
+                                合約
+                            </Button>
+                        </div>
                         {tradeMode === 'contract' && (
                             <QuestionCircleOutline 
                                 fontSize={16}
@@ -393,29 +405,31 @@ const TradingBar: React.FC<TradingBarProps> = ({
                     </div>
                     
                     {/* 【新增】地下錢莊按鈕 */}
-                    <Button
-                        size="small"
-                        fill="none"
-                        style={{
-                            padding: '4px 8px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}
-                        onClick={openLoanSharkWithHash}
-                    >
-                        <img 
-                            src="/images/loan_sharking.webp" 
-                            alt="地下錢莊"
+                    <div id="tutorial-btn-loan-shark">
+                        <Button
+                            size="small"
+                            fill="none"
                             style={{
-                                width: '28px',
-                                height: '28px',
-                                objectFit: 'contain',
-                                filter: debt > 0 ? 'none' : 'grayscale(100%)',
-                                display: 'block'
+                                padding: '4px 8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}
-                        />
-                    </Button>
+                            onClick={openLoanSharkWithHash}
+                        >
+                            <img 
+                                src="/images/loan_sharking.webp" 
+                                alt="地下錢莊"
+                                style={{
+                                    width: '28px',
+                                    height: '28px',
+                                    objectFit: 'contain',
+                                    filter: debt > 0 ? 'none' : 'grayscale(100%)',
+                                    display: 'block'
+                                }}
+                            />
+                        </Button>
+                    </div>
                 </div>
             </div>
 
@@ -430,84 +444,88 @@ const TradingBar: React.FC<TradingBarProps> = ({
                         marginBottom: '12px'
                     }}>
                         <span style={{ fontSize: '14px', color: '#666' }}>模式:</span>
-                        <DualColorSwitch
-                            checked={spotMode === 'BUY'}
-                            onChange={handleSpotModeChange}
-                            checkedText="買"
-                            uncheckedText="賣"
-                            checkedColor="#00b578"
-                            uncheckedColor="#ff3141"
-                        />
-                    </div>
-
-                    {/* 張數控制 */}
-                    <div style={{ marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                            <span style={{ fontSize: '14px', color: '#666' }}>張數</span>
-                            <span style={{ fontSize: '12px', color: '#999' }}>上限 {spotMax}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ flex: 1 }}>
-                                <Slider
-                                    min={0}
-                                    max={spotMax}
-                                    step={1}
-                                    ticks
-                                    disabled={spotMax <= 0}
-                                    value={Math.min(spotQuantity, spotMax)}
-                                    onChange={(val) => handleSliderChange(val as number, setSpotQuantity, setSpotQuantityInput, spotMax)}
-                                />
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
-                                    <span>0</span>
-                                    <span>{Math.floor(spotMax / 2)}</span>
-                                    <span>{spotMax}</span>
-                                </div>
-                            </div>
-                            <input
-                                type="number"
-                                min={0}
-                                max={spotMax}
-                                step={1}
-                                value={spotQuantityInput}
-                                onChange={(e) => handleSpotInputChange(e.target.value)}
-                                onBlur={handleSpotInputBlur}
-                                style={{
-                                    width: '60px',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    textAlign: 'center',
-                                    border: '1px solid #e5e5e5',
-                                    borderRadius: '4px',
-                                    padding: '4px 8px'
-                                }}
+                        <div id="tutorial-trade-switch">
+                            <DualColorSwitch
+                                checked={spotMode === 'BUY'}
+                                onChange={handleSpotModeChange}
+                                checkedText="買"
+                                uncheckedText="賣"
+                                checkedColor="#00b578"
+                                uncheckedColor="#ff3141"
                             />
                         </div>
                     </div>
 
-                    {/* 預估金額 */}
-                    <div style={{ 
-                        textAlign: 'center',
-                        fontSize: '12px',
-                        color: '#666',
-                        marginBottom: '12px'
-                    }}>
-                        預估金額: <span style={{ fontWeight: 'bold', color: '#1677ff' }}>
-                            ${spotEstimatedTotal.toFixed(2)}
-                        </span>
-                    </div>
+                    {/* 張數控制 */}
+                    <div id="tutorial-trade-action">
+                        <div style={{ marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                <span style={{ fontSize: '14px', color: '#666' }}>張數</span>
+                                <span style={{ fontSize: '12px', color: '#999' }}>上限 {spotMax}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <Slider
+                                        min={0}
+                                        max={spotMax}
+                                        step={1}
+                                        ticks
+                                        disabled={spotMax <= 0}
+                                        value={Math.min(spotQuantity, spotMax)}
+                                        onChange={(val) => handleSliderChange(val as number, setSpotQuantity, setSpotQuantityInput, spotMax)}
+                                    />
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
+                                        <span>0</span>
+                                        <span>{Math.floor(spotMax / 2)}</span>
+                                        <span>{spotMax}</span>
+                                    </div>
+                                </div>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={spotMax}
+                                    step={1}
+                                    value={spotQuantityInput}
+                                    onChange={(e) => handleSpotInputChange(e.target.value)}
+                                    onBlur={handleSpotInputBlur}
+                                    style={{
+                                        width: '60px',
+                                        fontSize: '16px',
+                                        fontWeight: 'bold',
+                                        textAlign: 'center',
+                                        border: '1px solid #e5e5e5',
+                                        borderRadius: '4px',
+                                        padding: '4px 8px'
+                                    }}
+                                />
+                            </div>
+                        </div>
 
-                    {/* 單一操作按鈕 */}
-                    <div>
-                        <Button 
-                            color={spotMode === 'BUY' ? 'success' : 'danger'}
-                            size="large"
-                            block
-                            disabled={isTrading || spotMax <= 0}
-                            loading={isTrading}
-                            onClick={handleConfirmSpot}
-                        >
-                            {spotMode === 'BUY' ? '買入' : '賣出'}
-                        </Button>
+                        {/* 預估金額 */}
+                        <div style={{ 
+                            textAlign: 'center',
+                            fontSize: '12px',
+                            color: '#666',
+                            marginBottom: '12px'
+                        }}>
+                            預估金額: <span style={{ fontWeight: 'bold', color: '#1677ff' }}>
+                                ${spotEstimatedTotal.toFixed(2)}
+                            </span>
+                        </div>
+
+                        {/* 單一操作按鈕 */}
+                        <div>
+                            <Button 
+                                color={spotMode === 'BUY' ? 'success' : 'danger'}
+                                size="large"
+                                block
+                                disabled={isTrading || spotMax <= 0}
+                                loading={isTrading}
+                                onClick={handleConfirmSpot}
+                            >
+                                {spotMode === 'BUY' ? '買入' : '賣出'}
+                            </Button>
+                        </div>
                     </div>
                 </>
             )}
@@ -515,167 +533,171 @@ const TradingBar: React.FC<TradingBarProps> = ({
             {/* 合約交易 UI */}
             {tradeMode === 'contract' && (
                 <>
-                    {/* 方向選擇 */}
-                    <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '8px'
-                    }}>
-                        <span style={{ fontSize: '14px', color: '#666' }}>方向:</span>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <Button 
-                                size="small"
-                                fill={contractDirection === 'LONG' ? 'solid' : 'none'}
-                                color={contractDirection === 'LONG' ? 'success' : 'default'}
-                                onClick={() => setContractDirection('LONG')}
-                            >
-                                做多 (看漲)
-                            </Button>
-                            <Button 
-                                size="small"
-                                fill={contractDirection === 'SHORT' ? 'solid' : 'none'}
-                                color={contractDirection === 'SHORT' ? 'danger' : 'default'}
-                                onClick={() => setContractDirection('SHORT')}
-                            >
-                                做空 (看跌)
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* 槓桿選擇 */}
-                    <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '8px'
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ fontSize: '14px', color: '#666' }}>倍數:</span>
-                            <QuestionCircleOutline 
-                                fontSize={14}
-                                style={{ cursor: 'pointer', color: '#999' }}
-                                onClick={() => {
-                                    Dialog.alert({
-                                        content: <div>
-                                            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>保證金計算公式</div>
-                                            <div style={{ marginBottom: '16px' }}>保證金 = (股價 × 張數) ÷ 槓桿倍數</div>
-                                            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>最高倍數</div>
-                                            <div>{maxLeverage}x</div>
-                                        </div>,
-                                    });
-                                }}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            {[2, 5, 10 ].map(lev => (
+                    <div id="tutorial-contract-options">
+                        {/* 方向選擇 */}
+                        <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '8px'
+                        }}>
+                            <span style={{ fontSize: '14px', color: '#666' }}>方向:</span>
+                            <div style={{ display: 'flex', gap: '8px' }}>
                                 <Button 
-                                    key={lev}
                                     size="small"
-                                    fill={leverage === lev ? 'solid' : 'none'}
-                                    color={leverage === lev ? 'primary' : 'default'}
-                                    onClick={() => handleLeverageChange(lev)}
+                                    fill={contractDirection === 'LONG' ? 'solid' : 'none'}
+                                    color={contractDirection === 'LONG' ? 'success' : 'default'}
+                                    onClick={() => setContractDirection('LONG')}
                                 >
-                                    {lev}x
+                                    做多 (看漲)
                                 </Button>
-                            ))}
-                            <div style={{paddingLeft: '20px'}}><input
-                                type="number"
-                                min="1.0"
-                                max={maxLeverage}
-                                step="0.1"
-                                value={customLeverage}
-                                onChange={(e) => handleCustomLeverageChange(e.target.value)}
-                                placeholder="自訂"
-                                style={{
-                                    fontSize: '14px',
-                                    width: '40px',
-                                    textAlign: 'center',
-                                    border: '1px solid #e5e5e5',
-                                    borderRadius: '4px',
-                                    padding: '4px'
-                                }}
-                            /> {" "}倍 </div>
+                                <Button 
+                                    size="small"
+                                    fill={contractDirection === 'SHORT' ? 'solid' : 'none'}
+                                    color={contractDirection === 'SHORT' ? 'danger' : 'default'}
+                                    onClick={() => setContractDirection('SHORT')}
+                                >
+                                    做空 (看跌)
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* 槓桿選擇 */}
+                        <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '8px'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '14px', color: '#666' }}>倍數:</span>
+                                <QuestionCircleOutline 
+                                    fontSize={14}
+                                    style={{ cursor: 'pointer', color: '#999' }}
+                                    onClick={() => {
+                                        Dialog.alert({
+                                            content: <div>
+                                                <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>保證金計算公式</div>
+                                                <div style={{ marginBottom: '16px' }}>保證金 = (股價 × 張數) ÷ 槓桿倍數</div>
+                                                <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>最高倍數</div>
+                                                <div>{maxLeverage}x</div>
+                                            </div>,
+                                        });
+                                    }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                {[2, 5, 10 ].map(lev => (
+                                    <Button 
+                                        key={lev}
+                                        size="small"
+                                        fill={leverage === lev ? 'solid' : 'none'}
+                                        color={leverage === lev ? 'primary' : 'default'}
+                                        onClick={() => handleLeverageChange(lev)}
+                                    >
+                                        {lev}x
+                                    </Button>
+                                ))}
+                                <div style={{paddingLeft: '20px'}}><input
+                                    type="number"
+                                    min="1.0"
+                                    max={maxLeverage}
+                                    step="0.1"
+                                    value={customLeverage}
+                                    onChange={(e) => handleCustomLeverageChange(e.target.value)}
+                                    placeholder="自訂"
+                                    style={{
+                                        fontSize: '14px',
+                                        width: '40px',
+                                        textAlign: 'center',
+                                        border: '1px solid #e5e5e5',
+                                        borderRadius: '4px',
+                                        padding: '4px'
+                                    }}
+                                /> {" "}倍 </div>
+                            </div>
                         </div>
                     </div>
 
                     {/* 張數控制 */}
-                    <div style={{ marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                            <span style={{ fontSize: '14px', color: '#666' }}>張數</span>
-                            <span style={{ fontSize: '12px', color: '#999' }}>上限 {contractMax}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <div style={{ flex: 1 }}>
-                                <Slider
+                    <div id="tutorial-contract-action">
+                        <div style={{ marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                                <span style={{ fontSize: '14px', color: '#666' }}>張數</span>
+                                <span style={{ fontSize: '12px', color: '#999' }}>上限 {contractMax}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{ flex: 1 }}>
+                                    <Slider
+                                        min={0}
+                                        max={contractMax}
+                                        step={1}
+                                        ticks
+                                        disabled={contractMax <= 0}
+                                        value={Math.min(contractQuantity, contractMax)}
+                                        onChange={(val) => handleSliderChange(val as number, setContractQuantity, setContractQuantityInput, contractMax)}
+                                    />
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
+                                        <span>0</span>
+                                        <span>{Math.floor(contractMax / 2)}</span>
+                                        <span>{contractMax}</span>
+                                    </div>
+                                </div>
+                                <input
+                                    type="number"
                                     min={0}
                                     max={contractMax}
                                     step={1}
-                                    ticks
-                                    disabled={contractMax <= 0}
-                                    value={Math.min(contractQuantity, contractMax)}
-                                    onChange={(val) => handleSliderChange(val as number, setContractQuantity, setContractQuantityInput, contractMax)}
+                                    value={contractQuantityInput}
+                                    onChange={(e) => handleContractInputChange(e.target.value)}
+                                    onBlur={handleContractInputBlur}
+                                    style={{
+                                        width: '60px',
+                                        fontSize: '16px',
+                                        fontWeight: 'bold',
+                                        textAlign: 'center',
+                                        border: '1px solid #e5e5e5',
+                                        borderRadius: '4px',
+                                        padding: '4px 8px'
+                                    }}
                                 />
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
-                                    <span>0</span>
-                                    <span>{Math.floor(contractMax / 2)}</span>
-                                    <span>{contractMax}</span>
-                                </div>
                             </div>
-                            <input
-                                type="number"
-                                min={0}
-                                max={contractMax}
-                                step={1}
-                                value={contractQuantityInput}
-                                onChange={(e) => handleContractInputChange(e.target.value)}
-                                onBlur={handleContractInputBlur}
-                                style={{
-                                    width: '60px',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    textAlign: 'center',
-                                    border: '1px solid #e5e5e5',
-                                    borderRadius: '4px',
-                                    padding: '4px 8px'
-                                }}
-                            />
                         </div>
-                    </div>
 
-                    {/* 預估保證金 */}
-                    <div style={{ 
-                        textAlign: 'center',
-                        fontSize: '12px',
-                        color: '#666',
-                        marginBottom: '12px'
-                    }}>
-                        保證金: <span style={{ fontWeight: 'bold', color: '#1677ff' }}>
-                            ${estimatedMargin.toFixed(2)}
-                        </span>
-                    </div>
+                        {/* 預估保證金 */}
+                        <div style={{ 
+                            textAlign: 'center',
+                            fontSize: '12px',
+                            color: '#666',
+                            marginBottom: '12px'
+                        }}>
+                            保證金: <span style={{ fontWeight: 'bold', color: '#1677ff' }}>
+                                ${estimatedMargin.toFixed(2)}
+                            </span>
+                        </div>
 
-                    {/* 操作按鈕 */}
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <Button 
-                            color="primary"
-                            size="large"
-                            style={{ flex: 1 }}
-                            disabled={isTrading || contractMax <= 0}
-                            loading={isTrading}
-                            onClick={handlePlaceContract}
-                        >
-                            下單 (隔日結算)
-                        </Button>
-                        <Button 
-                            color="danger"
-                            size="large"
-                            style={{ flex: 1 }}
-                            disabled={isTrading}
-                            onClick={handleCancelContract}
-                        >
-                            撤銷今日訂單
-                        </Button>
+                        {/* 操作按鈕 */}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <Button 
+                                color="primary"
+                                size="large"
+                                style={{ flex: 1 }}
+                                disabled={isTrading || contractMax <= 0}
+                                loading={isTrading}
+                                onClick={handlePlaceContract}
+                            >
+                                下單 (隔日結算)
+                            </Button>
+                            <Button 
+                                color="danger"
+                                size="large"
+                                style={{ flex: 1 }}
+                                disabled={isTrading}
+                                onClick={handleCancelContract}
+                            >
+                                撤銷今日訂單
+                            </Button>
+                        </div>
                     </div>
 
                     {/* 教學彈窗 */}

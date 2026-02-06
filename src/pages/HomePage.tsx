@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Toast, Avatar, Dialog, Popup, Grid, Modal, Checkbox, Space } from 'antd-mobile';
 import { RightOutline, CloseOutline } from 'antd-mobile-icons';
@@ -13,6 +13,7 @@ import NewsModal from '../components/NewsModal';
 import MiniGameOverlay from '../components/MiniGameOverlay';
 import type { MiniGameSyncState } from '../components/MiniGameOverlay';
 import { useSound } from '../contexts/SoundContext';
+import TutorialGuide from '../components/tutorial/TutorialGuide';
 
 /**
  * 格式化倒數計時（秒數轉 MM:SS）
@@ -73,6 +74,12 @@ const HomePage: React.FC = () => {
     
     // Modal 狀態
     const [showFullChartModal, setShowFullChartModal] = useState(false);
+
+    // 【新增】教學系統狀態
+    const [isTutorialActive, setIsTutorialActive] = useState(false);
+    const [currentTradeMode, setCurrentTradeMode] = useState<'spot' | 'contract'>('spot');
+    const [avatarSaved, setAvatarSaved] = useState(false);
+    const [tutorialStepIndex, setTutorialStepIndex] = useState(0); // 教學步驟索引，供子組件鎖定按鈕
     
     const navigate = useNavigate();
 
@@ -106,7 +113,7 @@ const HomePage: React.FC = () => {
             const hash = window.location.hash;
             const isUserMenuHash = hash === '#user-menu' || hash === '#avatar-selector' || hash === '#account-settings';
             const isMiniGameHash = hash === '#minigame';
-            
+
             // 根據當前 Hash 決定要打開或關閉哪個浮動視窗
             setShowUserMenu(isUserMenuHash);
             setShowAvatarSelector(hash === '#avatar-selector');
@@ -144,7 +151,13 @@ const HomePage: React.FC = () => {
     useEffect(() => {
         authAPI
             .getMe()
-            .then((response) => setUser(response.user))
+            .then((response) => {
+                setUser(response.user);
+                // 【新增】若為首次登入，延遲啟動教學系統
+                if (response.user.firstSignIn) {
+                    setTimeout(() => setIsTutorialActive(true), 1500);
+                }
+            })
             .catch((error) => {
                 console.error('[Auth] 無法取得使用者資訊:', error);
             });
@@ -741,6 +754,18 @@ const HomePage: React.FC = () => {
     // 音效播放輔助函數
     // playSound 函數已由 SoundContext 的 playSfx 取代
 
+    // 【新增】教學完成回調
+    const handleTutorialComplete = useCallback(() => {
+        setIsTutorialActive(false);
+        Toast.show({
+            icon: 'success',
+            content: '教學完成！祝你交易順利 🎉',
+            duration: 2000,
+        });
+        // 更新本地 user 狀態
+        setUser((prev) => prev ? { ...prev, firstSignIn: false } : prev);
+    }, []);
+
     // 計算當前股價
     const currentPrice = stockHistory.length > 0
         ? stockHistory[stockHistory.length - 1].price
@@ -756,6 +781,7 @@ const HomePage: React.FC = () => {
         try {
             const response = await authAPI.updateAvatar(selectedAvatar);
             setUser(response.user);
+            setAvatarSaved(true); // 【新增】通知教學系統頭像已儲存
             Toast.show({ icon: 'success', content: '頭像更新成功' });
             closeModalWithHash(setShowAvatarSelector);
             closeModalWithHash(setShowUserMenu);
@@ -832,7 +858,7 @@ const HomePage: React.FC = () => {
                 boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
             }}>
                 {/* 左側：遊戲狀態 */}
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: 1 }} id="tutorial-game-header">
                     {gameState ? (
                         <div style={{ 
                             fontSize: '14px', 
@@ -864,6 +890,7 @@ const HomePage: React.FC = () => {
 
                 {/* 右側：使用者頭像（可點擊） */}
                 <div 
+                    id="tutorial-user-avatar"
                     style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
@@ -891,7 +918,7 @@ const HomePage: React.FC = () => {
                 paddingBottom: '250px' // 預留底部交易欄空間（加大避免被遮擋）
             }}>
                 {/* ==================== (1) 資產區域 ==================== */}
-                <div style={{ 
+                <div id="tutorial-asset-card" style={{ 
                     borderRadius: '12px',
                     boxShadow: '0 2px 12px rgba(0,0,0,0.1)',
                     backgroundColor: '#fff',
@@ -1018,7 +1045,9 @@ const HomePage: React.FC = () => {
                 </div>
 
                 {/* ==================== (2) 股票訊息（兩欄佈局） ==================== */}
-                <div style={{ 
+                <div 
+                    id="tutorial-info-section"
+                    style={{ 
                     marginBottom: '12px'
                 }}>
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -1207,6 +1236,7 @@ const HomePage: React.FC = () => {
                 dailyInterestRate={gameState?.dailyInterestRate ?? 0.0001}
                 loanSharkVisitCount={user?.loanSharkVisitCount ?? 0} // 【新增】
                 currentDay={gameState?.currentDay ?? 0} // 【新增】
+                onTradeModeChange={setCurrentTradeMode} // 【新增】教學系統用
             />
 
             {/* ==================== 使用者選單 Popup ==================== */}
@@ -1286,6 +1316,7 @@ const HomePage: React.FC = () => {
 
                             {/* 更改頭像 */}
                             <div 
+                                id="tutorial-btn-edit-avatar"
                                 style={{
                                     padding: '16px 12px',
                                     display: 'flex',
@@ -1527,17 +1558,23 @@ const HomePage: React.FC = () => {
                         選擇頭像
                     </div>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <Button 
-                            size='small'
-                            color='primary'
-                            onClick={handleAvatarUpdate}
-                            disabled={!selectedAvatar}
-                        >
-                            儲存
-                        </Button>
+                        <div id="tutorial-btn-save-avatar">
+                            <Button 
+                                size='small'
+                                color='primary'
+                                onClick={handleAvatarUpdate}
+                                disabled={!selectedAvatar || (isTutorialActive && tutorialStepIndex === 13)}
+                            >
+                                儲存
+                            </Button>
+                        </div>
                         <CloseOutline 
                             fontSize={24} 
-                            style={{ cursor: 'pointer', color: '#999' }}
+                            style={{ 
+                                cursor: (isTutorialActive && (tutorialStepIndex === 13 || tutorialStepIndex === 14)) ? 'not-allowed' : 'pointer', 
+                                color: (isTutorialActive && (tutorialStepIndex === 13 || tutorialStepIndex === 14)) ? '#ddd' : '#999',
+                                pointerEvents: (isTutorialActive && (tutorialStepIndex === 13 || tutorialStepIndex === 14)) ? 'none' : 'auto',
+                            }}
                             onClick={() => closeModalWithHash(setShowAvatarSelector)}
                         />
                     </div>
@@ -1550,67 +1587,71 @@ const HomePage: React.FC = () => {
                     padding: '20px',
                     paddingBottom: 'max(20px, env(safe-area-inset-bottom))'
                 }}>
-                    <Grid columns={4} gap={12}>
-                        {avatarOptions.map((avatar) => (
-                            <Grid.Item key={avatar}>
-                                <div
-                                    onClick={() => setSelectedAvatar(avatar)}
-                                    style={{
-                                        position: 'relative',
-                                        cursor: 'pointer',
-                                        borderRadius: '8px',
-                                        overflow: 'hidden',
-                                        border: selectedAvatar === avatar 
-                                            ? '3px solid #1677ff' 
-                                            : '2px solid #f0f0f0',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    <img 
-                                        src={`/avatars/${avatar}`}
-                                        alt={avatar}
+                    <div id="tutorial-avatar-grid">
+                        <Grid 
+                            columns={4} 
+                            gap={12}>
+                            {avatarOptions.map((avatar) => (
+                                <Grid.Item key={avatar}>
+                                    <div
+                                        onClick={() => setSelectedAvatar(avatar)}
                                         style={{
-                                            width: '100%',
-                                            height: 'auto',
-                                            display: 'block',
-                                            aspectRatio: '1'
+                                            position: 'relative',
+                                            cursor: 'pointer',
+                                            borderRadius: '8px',
+                                            overflow: 'hidden',
+                                            border: selectedAvatar === avatar 
+                                                ? '3px solid #1677ff' 
+                                                : '2px solid #f0f0f0',
+                                            transition: 'all 0.2s'
                                         }}
-                                        onError={(e) => {
-                                            e.currentTarget.style.display = 'none';
-                                        }}
-                                    />
-                                    {selectedAvatar === avatar && (
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: 0,
-                                            left: 0,
-                                            right: 0,
-                                            bottom: 0,
-                                            backgroundColor: 'rgba(22, 119, 255, 0.2)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}>
+                                    >
+                                        <img 
+                                            src={`/avatars/${avatar}`}
+                                            alt={avatar}
+                                            style={{
+                                                width: '100%',
+                                                height: 'auto',
+                                                display: 'block',
+                                                aspectRatio: '1'
+                                            }}
+                                            onError={(e) => {
+                                                e.currentTarget.style.display = 'none';
+                                            }}
+                                        />
+                                        {selectedAvatar === avatar && (
                                             <div style={{
-                                                width: '20px',
-                                                height: '20px',
-                                                borderRadius: '50%',
-                                                backgroundColor: '#1677ff',
-                                                color: 'white',
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                bottom: 0,
+                                                backgroundColor: 'rgba(22, 119, 255, 0.2)',
                                                 display: 'flex',
                                                 alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontSize: '14px',
-                                                fontWeight: 'bold'
+                                                justifyContent: 'center'
                                             }}>
-                                                ✓
+                                                <div style={{
+                                                    width: '20px',
+                                                    height: '20px',
+                                                    borderRadius: '50%',
+                                                    backgroundColor: '#1677ff',
+                                                    color: 'white',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '14px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    ✓
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </Grid.Item>
-                        ))}
-                    </Grid>
+                                        )}
+                                    </div>
+                                </Grid.Item>
+                            ))}
+                        </Grid>
+                    </div>
                 </div>
             </Popup>
 
@@ -1639,6 +1680,18 @@ const HomePage: React.FC = () => {
             <NewsModal 
                 newsHistory={newsHistory}
                 onClose={() => setHasUnreadNews(false)}
+            />
+
+            {/* ==================== 【新增】教學精靈系統 ==================== */}
+            <TutorialGuide
+                enabled={isTutorialActive}
+                onComplete={handleTutorialComplete}
+                currentTradeMode={currentTradeMode}
+                isUserMenuOpen={showUserMenu}
+                isAvatarSelectorOpen={showAvatarSelector}
+                selectedAvatar={selectedAvatar}
+                avatarSaved={avatarSaved}
+                onStepIndexChange={setTutorialStepIndex}
             />
         </div>
     );
