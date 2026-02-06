@@ -28,6 +28,9 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
 
     // 【新增】追蹤遊戲回合，每次進入 PREPARE 都重置
     const lastPhaseRef = useRef<string>('');
+    
+    // 【新增】独立追踪 Phase 变化（用于立即发送最终下注）
+    const prevPhaseForBetRef = useRef<string>('');
 
     useEffect(() => {
         const currentPhase = normalizedPhase;
@@ -104,6 +107,37 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
             }
         };
     }, [selectedOption, betAmount, normalizedPhase, socket]);
+
+    // 【新增】Phase 切換時立即送出最終下注（繞過 debounce，確保結算前資料送達）
+    useEffect(() => {
+        const previousPhase = prevPhaseForBetRef.current;
+
+        // 當 Phase 從 GAMING 切換到其他階段時，立即送出當前下注
+        if (previousPhase === 'GAMING' && normalizedPhase !== 'GAMING') {
+            if (socket && selectedOption !== null && betAmount > 0) {
+                console.log(`[Minority] Phase 切換 (${previousPhase} -> ${normalizedPhase})，立即送出最終下注:`, {
+                    option: selectedOption,
+                    amount: betAmount
+                });
+                
+                // 立即清除 debounce timer
+                if (debounceTimerRef.current) {
+                    clearTimeout(debounceTimerRef.current);
+                    debounceTimerRef.current = null;
+                }
+                
+                // 立即發送
+                socket.emit('MINIGAME_ACTION', {
+                    type: 'PLACE_BET',
+                    option: selectedOption,
+                    amount: betAmount,
+                });
+            }
+        }
+        
+        // 更新 ref 为当前 phase
+        prevPhaseForBetRef.current = normalizedPhase;
+    }, [normalizedPhase, socket, selectedOption, betAmount]);
 
     // ========== PREPARE 階段：僅顯示題目 + 進度條 ==========
     if (normalizedPhase === 'PREPARE') {
@@ -357,6 +391,7 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
     if (normalizedPhase === 'RESULT') {
         const settlementResult = state.data?.settlementResult;
         const myResult = settlementResult?.results?.find((r: any) => r.userId === selfUserId);
+        const options = state.data?.question?.options || []; // 【新增】获取选项列表
 
         if (!myResult) {
             return (
@@ -386,6 +421,10 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
         }
 
         const { option, betAmount, status, profit } = myResult;
+        
+        // 【新增】获取选项文本内容
+        const optionIndex = option.charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+        const optionText = options[optionIndex] || '';
 
         // 狀態顏色與訊息
         let statusColor = '#888';
@@ -440,8 +479,13 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
                 {/* 結果區域 */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
                     {/* 選擇提示 */}
-                    <div style={{ fontSize: 16, opacity: 0.8 }}>
+                    <div style={{ fontSize: 16, opacity: 0.8, textAlign: 'center', lineHeight: 1.5 }}>
                         你選擇了 <span style={{ fontWeight: 700, fontSize: 20 }}>[{option}]</span>
+                        {optionText && (
+                            <div style={{ marginTop: 8, fontSize: 18, fontWeight: 600, color: '#FFD700' }}>
+                                {optionText}
+                            </div>
+                        )}
                     </div>
 
                     {/* 狀態訊息 */}

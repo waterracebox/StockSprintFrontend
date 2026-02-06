@@ -75,11 +75,20 @@ const QuizUserView: React.FC<Props> = ({ state, totalAssets, currentPrice, onCol
     // ========== RESULT 階段：顯示答案與獲利 ==========
     if (normalizedPhase === 'RESULT') {
         const questionTitle = state.data?.question?.title || '';
+        const options = state.data?.question?.options || []; // 【新增】获取选项列表
         const correctAnswer = state.data?.question?.correctAnswer || 'A';
         const myAnswerData = state.data?.answers?.[String(selfUserId)];
-        const isCorrect = myAnswerData?.answer === correctAnswer;
+        const myAnswer = myAnswerData?.answer; // 【新增】用户的答案字母
+        const isCorrect = myAnswer === correctAnswer;
         const winners = (state.data?.winners || []) as Array<{ userId: number; reward: number; rank: number }>;
         const myReward = winners.find((w) => w.userId === selfUserId)?.reward || 0;
+
+        // 【新增】获取选项文本内容
+        const correctAnswerIndex = correctAnswer.charCodeAt(0) - 65; // A→0, B→1, C→2, D→3
+        const correctAnswerText = options[correctAnswerIndex] || '';
+        
+        const myAnswerIndex = myAnswer ? myAnswer.charCodeAt(0) - 65 : -1;
+        const myAnswerText = myAnswerIndex >= 0 ? (options[myAnswerIndex] || '') : '';
 
         return (
             <div
@@ -164,13 +173,52 @@ const QuizUserView: React.FC<Props> = ({ state, totalAssets, currentPrice, onCol
                         </motion.div>
                     )}
 
+                    {/* 答案区域 */}
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: 1.0, duration: 0.5 }}
-                        style={{ fontSize: 16, opacity: 0.75, marginTop: 16 }}
+                        style={{ 
+                            fontSize: 16, 
+                            marginTop: 16,
+                            textAlign: 'center',
+                            lineHeight: 1.6,
+                        }}
                     >
-                        正確答案：{correctAnswer}
+                        {/* 答错时：显示用户的错误答案 */}
+                        {!isCorrect && myAnswer && (
+                            <div style={{ 
+                                marginBottom: 16, 
+                                padding: 12, 
+                                background: 'rgba(244, 67, 54, 0.2)',
+                                borderRadius: 8,
+                                border: '1px solid rgba(244, 67, 54, 0.4)',
+                            }}>
+                                <div style={{ opacity: 0.75, fontSize: 14, marginBottom: 4 }}>你的答案</div>
+                                <div style={{ fontWeight: 700, fontSize: 18 }}>{myAnswer}</div>
+                                {myAnswerText && (
+                                    <div style={{ fontSize: 15, marginTop: 4, color: '#FFB3B3' }}>
+                                        {myAnswerText}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        {/* 显示正确答案 */}
+                        <div style={{ 
+                            padding: 12,
+                            background: 'rgba(76, 175, 80, 0.2)',
+                            borderRadius: 8,
+                            border: '1px solid rgba(76, 175, 80, 0.4)',
+                        }}>
+                            <div style={{ opacity: 0.75, fontSize: 14, marginBottom: 4 }}>正確答案</div>
+                            <div style={{ fontWeight: 700, fontSize: 18 }}>{correctAnswer}</div>
+                            {correctAnswerText && (
+                                <div style={{ fontSize: 15, marginTop: 4, color: '#B3FFB3' }}>
+                                    {correctAnswerText}
+                                </div>
+                            )}
+                        </div>
                     </motion.div>
                 </div>
             </div>
