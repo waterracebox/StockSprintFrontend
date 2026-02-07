@@ -120,9 +120,9 @@ export const authAPI = {
     },
 
     /**
-     * 更新帳號設定（目前僅 isEmployee）
+     * 更新帳號設定（isEmployee、firstSignIn）
      */
-    updateAccount: async (payload: { isEmployee: boolean }): Promise<{ message: string; user: User }> => {
+    updateAccount: async (payload: { isEmployee: boolean; firstSignIn?: boolean }): Promise<{ message: string; user: User }> => {
         const response = await apiClient.patch('/auth/account', payload);
         return response.data;
     },

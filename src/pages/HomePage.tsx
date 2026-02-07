@@ -71,6 +71,7 @@ const HomePage: React.FC = () => {
     const [showAccountSettings, setShowAccountSettings] = useState(false);
     const [selectedAvatar, setSelectedAvatar] = useState<string>('');
     const [accountIsEmployee, setAccountIsEmployee] = useState(false);
+    const [accountFirstSignIn, setAccountFirstSignIn] = useState(false);
     
     // Modal 狀態
     const [showFullChartModal, setShowFullChartModal] = useState(false);
@@ -796,7 +797,7 @@ const HomePage: React.FC = () => {
 
     const handleAccountUpdate = async () => {
         try {
-            const response = await authAPI.updateAccount({ isEmployee: accountIsEmployee });
+            const response = await authAPI.updateAccount({ isEmployee: accountIsEmployee, firstSignIn: accountFirstSignIn });
             setUser(response.user);
             Toast.show({ icon: 'success', content: '帳號設定已更新' });
             closeModalWithHash(setShowAccountSettings);
@@ -1304,6 +1305,7 @@ const HomePage: React.FC = () => {
                                 }}
                                 onClick={() => {
                                     setAccountIsEmployee(!!user?.isEmployee);
+                                    setAccountFirstSignIn(!!user?.firstSignIn);
                                     setShowUserMenu(true);
                                     openModalWithHash('#account-settings', setShowAccountSettings);
                                 }}
@@ -1524,6 +1526,19 @@ const HomePage: React.FC = () => {
 
                         <div style={{ fontSize: 12, color: '#999' }}>
                             變更為員工身份後，系統將在下次同步時顯示最新標記。
+                        </div>
+
+                        <div style={{ height: 1, backgroundColor: '#f0f0f0', margin: '8px 0' }} />
+
+                        <Checkbox
+                            checked={accountFirstSignIn}
+                            onChange={(val) => setAccountFirstSignIn(val)}
+                        >
+                            我是新手
+                        </Checkbox>
+
+                        <div style={{ fontSize: 12, color: '#999' }}>
+                            勾選後，下次進入遊戲時將會啟動新手教學引導。
                         </div>
                     </Space>
                 </div>
