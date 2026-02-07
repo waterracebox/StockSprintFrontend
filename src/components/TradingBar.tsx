@@ -220,6 +220,17 @@ const TradingBar: React.FC<TradingBarProps> = ({
         return Math.max(0, Math.floor(cash / marginPerShare));
     }, [cash, currentPrice, customLeverage, maxLeverage]);
 
+    // 【修復】Slider 安全上限：避免 max 過大時渲染過多 tick 節點導致瀏覽器凍結
+    const SLIDER_MAX_SAFE = 10000;
+    const safeSpotMax = Math.min(spotMax, SLIDER_MAX_SAFE);
+    const safeContractMax = Math.min(contractMax, SLIDER_MAX_SAFE);
+    // 動態 step：超過 100 就不適合每格 1
+    const spotSliderStep = safeSpotMax > 1000 ? 10 : 1;
+    const contractSliderStep = safeContractMax > 1000 ? 10 : 1;
+    // 超過安全上限時不顯示 ticks，避免 DOM 爆炸
+    const showSpotTicks = safeSpotMax <= 100;
+    const showContractTicks = safeContractMax <= 100;
+
     // Slider 變動同步輸入框
     const handleSliderChange = (
         value: number,
@@ -467,17 +478,17 @@ const TradingBar: React.FC<TradingBarProps> = ({
                                 <div style={{ flex: 1 }}>
                                     <Slider
                                         min={0}
-                                        max={spotMax}
-                                        step={1}
-                                        ticks
+                                        max={safeSpotMax}
+                                        step={spotSliderStep}
+                                        ticks={showSpotTicks}
                                         disabled={spotMax <= 0}
-                                        value={Math.min(spotQuantity, spotMax)}
+                                        value={Math.min(spotQuantity, safeSpotMax)}
                                         onChange={(val) => handleSliderChange(val as number, setSpotQuantity, setSpotQuantityInput, spotMax)}
                                     />
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
                                         <span>0</span>
-                                        <span>{Math.floor(spotMax / 2)}</span>
-                                        <span>{spotMax}</span>
+                                        <span>{Math.floor(safeSpotMax / 2)}{spotMax > SLIDER_MAX_SAFE ? '+' : ''}</span>
+                                        <span>{safeSpotMax}{spotMax > SLIDER_MAX_SAFE ? '+' : ''}</span>
                                     </div>
                                 </div>
                                 <input
@@ -630,17 +641,17 @@ const TradingBar: React.FC<TradingBarProps> = ({
                                 <div style={{ flex: 1 }}>
                                     <Slider
                                         min={0}
-                                        max={contractMax}
-                                        step={1}
-                                        ticks
+                                        max={safeContractMax}
+                                        step={contractSliderStep}
+                                        ticks={showContractTicks}
                                         disabled={contractMax <= 0}
-                                        value={Math.min(contractQuantity, contractMax)}
+                                        value={Math.min(contractQuantity, safeContractMax)}
                                         onChange={(val) => handleSliderChange(val as number, setContractQuantity, setContractQuantityInput, contractMax)}
                                     />
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
                                         <span>0</span>
-                                        <span>{Math.floor(contractMax / 2)}</span>
-                                        <span>{contractMax}</span>
+                                        <span>{Math.floor(safeContractMax / 2)}{contractMax > SLIDER_MAX_SAFE ? '+' : ''}</span>
+                                        <span>{safeContractMax}{contractMax > SLIDER_MAX_SAFE ? '+' : ''}</span>
                                     </div>
                                 </div>
                                 <input

@@ -343,8 +343,8 @@ const MinorityUserView: React.FC<Props> = ({ state, totalAssets, userCash, curre
                         <div style={{ flex: 1 }}>
                             <Slider
                                 min={0}
-                                max={maxCash}
-                                step={1}
+                                max={Math.min(maxCash, 100000)}
+                                step={maxCash > 10000 ? 10 : 1}
                                 value={Math.min(betAmount, maxCash)}
                                 onChange={(val) => setBetAmount(typeof val === 'number' ? val : val[0])}
                                 disabled={!selectedOption}
