@@ -58,7 +58,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     // ========== Step 3: 市場資訊區 ==========
     {
         target: '#tutorial-info-section',
-        content: '留意市場趨勢和新聞速報，它們會影響股價走勢，是你的投資決策關鍵！📰',
+        content: '留意市場趨勢和新聞速報(點擊後會顯示完整趨勢圖與新聞列表)，它們會影響股價走勢，是你的投資決策關鍵！📰',
         placement: 'top',
         data: {
             fairyPlacement: 'top',
