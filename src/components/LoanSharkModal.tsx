@@ -93,8 +93,9 @@ const LoanSharkModal: React.FC<LoanSharkModalProps> = ({
         const remainingLimit = maxLoanAmount - dailyBorrowed;
         const repayMax = Math.max(0, Math.min(cash, debt));
         const sliderMax = mode === 'BORROW' ? Math.max(0, remainingLimit) : repayMax;
-        // 【修復】動態 step：避免 max 過大時 Slider 內部產生過多 tick 位置導致瀏覽器凍結
-        const sliderStep = sliderMax > 100000 ? 100 : sliderMax > 10000 ? 10 : sliderMax > 1000 ? 1 : 0.01;
+        // 【修復】比例 step：保持離散位置 ≤ 5000，支援任意大小的 max（含一億）
+        const sliderStep = sliderMax <= 1000 ? 0.01
+            : Math.max(1, Math.pow(10, Math.floor(Math.log10(sliderMax)) - 3));
         return { remainingLimit, repayMax, sliderMax, sliderStep };
     }, [maxLoanAmount, dailyBorrowed, cash, debt, mode]);
 

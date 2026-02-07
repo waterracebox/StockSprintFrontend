@@ -220,16 +220,14 @@ const TradingBar: React.FC<TradingBarProps> = ({
         return Math.max(0, Math.floor(cash / marginPerShare));
     }, [cash, currentPrice, customLeverage, maxLeverage]);
 
-    // 【修復】Slider 安全上限：避免 max 過大時渲染過多 tick 節點導致瀏覽器凍結
-    const SLIDER_MAX_SAFE = 10000;
-    const safeSpotMax = Math.min(spotMax, SLIDER_MAX_SAFE);
-    const safeContractMax = Math.min(contractMax, SLIDER_MAX_SAFE);
-    // 動態 step：超過 100 就不適合每格 1
-    const spotSliderStep = safeSpotMax > 1000 ? 10 : 1;
-    const contractSliderStep = safeContractMax > 1000 ? 10 : 1;
-    // 超過安全上限時不顯示 ticks，避免 DOM 爆炸
-    const showSpotTicks = safeSpotMax <= 100;
-    const showContractTicks = safeContractMax <= 100;
+    // 【修復】比例 step：保持離散位置 ≤ 5000，支援任意大小的 max（含一億）
+    const calcSafeStep = (max: number) =>
+        max <= 0 ? 1 : Math.max(1, Math.pow(10, Math.floor(Math.log10(max)) - 3));
+    const spotSliderStep = calcSafeStep(spotMax);
+    const contractSliderStep = calcSafeStep(contractMax);
+    // 超過 20 就不顯示 ticks，避免 DOM 節點爆炸
+    const showSpotTicks = spotMax <= 20;
+    const showContractTicks = contractMax <= 20;
 
     // Slider 變動同步輸入框
     const handleSliderChange = (
@@ -478,17 +476,17 @@ const TradingBar: React.FC<TradingBarProps> = ({
                                 <div style={{ flex: 1 }}>
                                     <Slider
                                         min={0}
-                                        max={safeSpotMax}
+                                        max={spotMax}
                                         step={spotSliderStep}
                                         ticks={showSpotTicks}
                                         disabled={spotMax <= 0}
-                                        value={Math.min(spotQuantity, safeSpotMax)}
+                                        value={Math.min(spotQuantity, spotMax)}
                                         onChange={(val) => handleSliderChange(val as number, setSpotQuantity, setSpotQuantityInput, spotMax)}
                                     />
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
                                         <span>0</span>
-                                        <span>{Math.floor(safeSpotMax / 2)}{spotMax > SLIDER_MAX_SAFE ? '+' : ''}</span>
-                                        <span>{safeSpotMax}{spotMax > SLIDER_MAX_SAFE ? '+' : ''}</span>
+                                        <span>{Math.floor(spotMax / 2)}</span>
+                                        <span>{spotMax}</span>
                                     </div>
                                 </div>
                                 <input
@@ -641,17 +639,17 @@ const TradingBar: React.FC<TradingBarProps> = ({
                                 <div style={{ flex: 1 }}>
                                     <Slider
                                         min={0}
-                                        max={safeContractMax}
+                                        max={contractMax}
                                         step={contractSliderStep}
                                         ticks={showContractTicks}
                                         disabled={contractMax <= 0}
-                                        value={Math.min(contractQuantity, safeContractMax)}
+                                        value={Math.min(contractQuantity, contractMax)}
                                         onChange={(val) => handleSliderChange(val as number, setContractQuantity, setContractQuantityInput, contractMax)}
                                     />
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#999', marginTop: 4 }}>
                                         <span>0</span>
-                                        <span>{Math.floor(safeContractMax / 2)}{contractMax > SLIDER_MAX_SAFE ? '+' : ''}</span>
-                                        <span>{safeContractMax}{contractMax > SLIDER_MAX_SAFE ? '+' : ''}</span>
+                                        <span>{Math.floor(contractMax / 2)}</span>
+                                        <span>{contractMax}</span>
                                     </div>
                                 </div>
                                 <input
