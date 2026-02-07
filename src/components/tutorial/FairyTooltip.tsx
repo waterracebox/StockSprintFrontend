@@ -137,6 +137,7 @@ const FairyTooltip: React.FC<FairyTooltipProps> = ({
         fairyDialogPlacement = 'bottom',
         fairyType = 'center',
         requiresInteraction = false,
+        wideContent = false,
     } = stepData;
 
     // 自動偵測：content 包含「請點擊」即視為需要使用者互動
@@ -205,7 +206,7 @@ const FairyTooltip: React.FC<FairyTooltipProps> = ({
                     borderRadius: 16,
                     padding: '16px 20px',
                     boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
-                    maxWidth: BUBBLE_MAX_WIDTH,
+                    maxWidth: wideContent ? 400 : BUBBLE_MAX_WIDTH,
                     minWidth: 180,
                 }}
             >

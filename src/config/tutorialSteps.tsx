@@ -1,3 +1,4 @@
+import React from 'react';
 import type { TutorialStep } from './tutorialTypes';
 
 /**
@@ -136,12 +137,58 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     // ========== Step 8: 合約選項 ==========
     {
         target: '#tutorial-contract-options',
-        content: '合約交易可以選擇「做多」（看漲）或「做空」（看跌），還能設定槓桿倍數放大報酬或風險！',
-        placement: 'top',
+        content: (
+            <div>
+                <div style={{ marginBottom: 8 }}>
+                    合約交易可以「做多」或「做空」，還能設定槓桿放大報酬或風險！
+                </div>
+                <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>
+                    假設資產從 <b>100 元</b>漲到 <b>110 元</b>（漲 <b>10%</b>）：
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, lineHeight: 1.4 }}>
+                        <thead>
+                            <tr style={{ background: '#f5f5f5' }}>
+                                <th style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'left', whiteSpace: 'nowrap' }}>比較</th>
+                                <th style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'center', whiteSpace: 'nowrap' }}>無槓桿(1x)</th>
+                                <th style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'center', whiteSpace: 'nowrap' }}>5倍槓桿(5x)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', whiteSpace: 'nowrap' }}>出的錢</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'center' }}>100元 (全額)</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'center' }}>20元 (保證金)</td>
+                            </tr>
+                            <tr>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', whiteSpace: 'nowrap' }}>漒10元後</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'center' }}>賺10元</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'center' }}>賺10元</td>
+                            </tr>
+                            <tr>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', whiteSpace: 'nowrap' }}>獲利率</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'center' }}>10÷100=<b>10%</b></td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'center' }}>10÷20=<b>50%</b></td>
+                            </tr>
+                            <tr style={{ background: '#fffbe6' }}>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', whiteSpace: 'nowrap' }}>結果</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'center' }}>與市場同步</td>
+                                <td style={{ padding: '4px 6px', border: '1px solid #e0e0e0', textAlign: 'center', fontWeight: 'bold', color: '#d4380d' }}>獲利×5倍</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style={{ fontSize: 11, color: '#d4380d', marginTop: 6, fontWeight: 'bold' }}>
+                    ⚠️ 注意：雖然賺錢是 5 倍，但虧損也是 5 倍！
+                </div>
+            </div>
+        ),
+        placement: 'bottom',
         data: {
-            fairyPlacement: 'top',
+            fairyPlacement: 'bottom',
             fairyDialogPlacement: 'top',
             fairyType: 'center',
+            wideContent: true,
         },
         disableBeacon: true,
         disableOverlayClose: true,

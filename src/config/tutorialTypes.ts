@@ -38,6 +38,8 @@ export interface TutorialStepData {
     requiresInteraction?: boolean;
     /** 互動完成後觸發推進的事件名稱 */
     advanceOn?: string;
+    /** 是否為寬內容（如表格），泡泡會自動加寬 */
+    wideContent?: boolean;
 }
 
 /**
